@@ -15,6 +15,7 @@ final class SchedulerService
 
         $result = [
             'evidence_violations' => 0,
+            'evidence_retake_violations' => 0,
             'task_violations' => 0,
             'spontaneous_violations' => 0,
             'damage_violations' => 0,
@@ -27,6 +28,7 @@ final class SchedulerService
 
         try {
             $result['evidence_violations'] = $this->evidenceWindows();
+            $result['evidence_retake_violations'] = $this->evidenceRetakes();
             $result['task_violations'] = $this->tasks();
             $result['spontaneous_violations'] = $this->spontaneous();
             $result['damage_violations'] = $this->damageRequests();
@@ -89,6 +91,20 @@ final class SchedulerService
             }
 
             $this->db->prepare("UPDATE evidence_windows SET status='closed' WHERE id=?")->execute([$w['id']]);
+        }
+
+        return $made;
+    }
+
+    private function evidenceRetakes(): int
+    {
+        $q = $this->db->query("SELECT e.id,e.order_id FROM evidences e WHERE e.review_status='rejected' AND e.retake_grace_ends_at IS NOT NULL AND e.retake_grace_ends_at<NOW() AND e.resolved_by_evidence_id IS NULL AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE e.retake_grace_ends_at BETWEEN po.starts_at AND po.ends_at)");
+        $made = 0;
+
+        foreach ($q->fetchAll() as $row) {
+            if ($this->ensureViolation((int) $row['order_id'], 'evidence_retake_missed', 'evidence_retake', (int) $row['id'], 'Angeforderte Nachaufnahme wurde nicht innerhalb der Nachforderungsfrist einschließlich Nachfrist eingereicht.', true)) {
+                $made++;
+            }
         }
 
         return $made;

@@ -205,9 +205,15 @@ final class PayoutController
                 if ((float) $wallet['balance_available'] < (float) $payout['requested_amount']) {
                     throw new RuntimeException('Das verfügbare Walletguthaben reicht nicht mehr aus.');
                 }
+
+                $archivedOrders = $this->allocatePaidOrders($payout);
+
                 $newBalance = (float) $wallet['balance_available'] - (float) $payout['requested_amount'];
                 $this->db->prepare('UPDATE wallets SET balance_available=?,updated_at=NOW() WHERE id=?')->execute([$newBalance, $wallet['id']]);
-                $this->db->prepare("INSERT INTO wallet_entries(wallet_id,payout_request_id,entry_type,status,amount,balance_after,created_at) VALUES(?,?,'payout','paid',?,?,NOW())")->execute([$wallet['id'], $id, -1 * (float) $payout['requested_amount'], $newBalance]);
+                $this->db->prepare("INSERT INTO wallet_entries(wallet_id,payout_request_id,entry_type,status,amount,balance_after,metadata_json,created_at) VALUES(?,?,'payout','paid',?,?,?,NOW())")
+                    ->execute([$wallet['id'], $id, -1 * (float) $payout['requested_amount'], $newBalance, json_encode(['archived_orders' => $archivedOrders], JSON_UNESCAPED_UNICODE)]);
+                $this->db->prepare("INSERT INTO notifications(seller_id,dedupe_key,type,title,message,url,created_at) VALUES(?,?,'payout','Auszahlung abgeschlossen',?,'/konto/wallet',NOW())")
+                    ->execute([$payout['seller_id'], 'payout:' . $id . ':paid', 'Deine Auszahlung über ' . number_format((float) $payout['net_amount'], 2, ',', '.') . ' € wurde als ausgezahlt markiert.']);
             }
 
             $this->db->prepare('UPDATE payout_requests SET status=?,processed_at=CASE WHEN ? IN (\'paid\',\'rejected\') THEN NOW() ELSE processed_at END WHERE id=?')->execute([$status, $status, $id]);
@@ -221,6 +227,51 @@ final class PayoutController
         }
 
         Response::redirect('/admin/auszahlungen');
+    }
+
+    private function allocatePaidOrders(array $payout): array
+    {
+        $remaining = round((float) $payout['requested_amount'], 2);
+        $archived = [];
+
+        $q = $this->db->prepare("SELECT o.id,o.order_number,o.paid_out_amount,fr.approved_amount FROM orders o JOIN final_reviews fr ON fr.order_id=o.id WHERE o.seller_id=? AND o.status='completed' AND fr.approved_amount>o.paid_out_amount ORDER BY o.finished_at,o.id FOR UPDATE");
+        $q->execute([$payout['seller_id']]);
+
+        foreach ($q->fetchAll() as $order) {
+            if ($remaining <= 0.004) {
+                break;
+            }
+
+            $open = round((float) $order['approved_amount'] - (float) $order['paid_out_amount'], 2);
+            if ($open <= 0) {
+                continue;
+            }
+
+            $allocation = min($remaining, $open);
+            $this->db->prepare('INSERT INTO payout_order_allocations(payout_request_id,order_id,amount,created_at) VALUES(?,?,?,NOW())')
+                ->execute([$payout['id'], $order['id'], $allocation]);
+
+            $newPaid = round((float) $order['paid_out_amount'] + $allocation, 2);
+            $this->db->prepare('UPDATE orders SET paid_out_amount=?,updated_at=NOW() WHERE id=?')
+                ->execute([$newPaid, $order['id']]);
+
+            if ($newPaid + 0.004 >= (float) $order['approved_amount']) {
+                $this->db->prepare("UPDATE orders SET status='archived',phase='archive',archived_at=COALESCE(archived_at,NOW()),updated_at=NOW() WHERE id=?")
+                    ->execute([$order['id']]);
+                $this->db->prepare('UPDATE chats SET is_readonly=1 WHERE order_id=?')->execute([$order['id']]);
+                $this->db->prepare("INSERT INTO system_events(seller_id,order_id,event_type,actor_type,payload_json,created_at) VALUES(?,?,'order_archived_after_payout','system',?,NOW())")
+                    ->execute([$payout['seller_id'], $order['id'], json_encode(['payout_request_id' => $payout['id'], 'approved_amount' => (float) $order['approved_amount']], JSON_UNESCAPED_UNICODE)]);
+                $archived[] = (string) $order['order_number'];
+            }
+
+            $remaining = round($remaining - $allocation, 2);
+        }
+
+        if ($remaining > 0.004) {
+            throw new RuntimeException('Der Auszahlungsbetrag kann nicht vollständig freigegebenen Aufträgen zugeordnet werden. Auszahlung wurde nicht verbucht.');
+        }
+
+        return $archived;
     }
 
     private function settings(array $defaults): array

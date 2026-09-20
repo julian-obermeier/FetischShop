@@ -20,6 +20,7 @@ use App\Http\Controllers\PayoutController;
 use App\Http\Controllers\UpdaterController;
 use App\Http\Controllers\ShippingController;
 use App\Http\Controllers\DigitalController;
+use App\Http\Controllers\OperationsController;
 
 final class App
 {
@@ -92,6 +93,7 @@ final class App
             $updater = new UpdaterController($this->root, $db);
             $shipping = new ShippingController($this->root, $db, $auth);
             $digital = new DigitalController($this->root, $db, $auth);
+            $operations = new OperationsController($this->root, $db);
 
             $router->get('/media/evidence/{id}', [$media, 'evidence']);
             $router->get('/media/digital/{id}', [$media, 'digital']);
@@ -147,6 +149,14 @@ final class App
             $router->post('/admin/login', [$adminAuth, 'login'], [$csrf]);
             $router->post('/admin/logout', [$adminAuth, 'logout'], [$csrf, $adminOnly]);
             $router->get('/admin', [$admin, 'dashboard'], [$adminOnly]);
+            $router->get('/admin/entscheidungen', [$operations, 'decisions'], [$adminOnly]);
+            $router->get('/admin/fristen', [$operations, 'deadlines'], [$adminOnly]);
+            $router->get('/admin/kalender', [$operations, 'calendar'], [$adminOnly]);
+            $router->get('/admin/suche', [$operations, 'search'], [$adminOnly]);
+            $router->get('/admin/archiv', [$operations, 'archive'], [$adminOnly]);
+            $router->get('/admin/einstellungen', [$operations, 'settings'], [$adminOnly]);
+            $router->post('/admin/einstellungen', [$operations, 'saveSettings'], [$csrf, $adminOnly]);
+            $router->post('/admin/einstellungen/ausfall', [$operations, 'createOutage'], [$csrf, $adminOnly]);
             $router->get('/admin/auszahlungen', [$payouts, 'adminIndex'], [$adminOnly]);
             $router->post('/admin/auszahlungen/{id}', [$payouts, 'adminUpdate'], [$csrf, $adminOnly]);
             $router->get('/admin/system/update', [$updater, 'index'], [$adminOnly]);

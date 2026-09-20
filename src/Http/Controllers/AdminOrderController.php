@@ -12,7 +12,7 @@ final class AdminOrderController{
   $sp=$this->db->prepare("SELECT sr.*,(SELECT COUNT(*) FROM evidences x WHERE x.spontaneous_request_id=sr.id) uploaded_count FROM spontaneous_requests sr WHERE sr.order_id=? ORDER BY sr.created_at DESC");$sp->execute([$o['id']]);
   $tasks=$this->db->prepare("SELECT te.*,t.title,t.description,t.config_json FROM task_executions te JOIN tasks t ON t.id=te.task_id WHERE t.order_id=? ORDER BY te.due_at DESC");$tasks->execute([$o['id']]);
   $tpl=$this->db->query("SELECT id,title FROM task_templates WHERE is_active=1 ORDER BY title")->fetchAll();
-  $damage=$this->db->prepare("SELECT * FROM damage_cases WHERE order_id=? ORDER BY created_at DESC");$damage->execute([$o['id']]);
+  $damage=$this->db->prepare("SELECT dc.*,oc.title component_title FROM damage_cases dc LEFT JOIN order_components oc ON oc.id=dc.order_component_id WHERE dc.order_id=? ORDER BY dc.created_at DESC");$damage->execute([$o['id']]);
   $damageReq=$this->db->prepare("SELECT dr.* FROM damage_evidence_requests dr JOIN damage_cases dc ON dc.id=dr.damage_case_id WHERE dc.order_id=? ORDER BY dr.created_at DESC");$damageReq->execute([$o['id']]);
   $m=$this->db->prepare('SELECT cm.* FROM chat_messages cm JOIN chats c ON c.id=cm.chat_id WHERE c.order_id=? ORDER BY cm.created_at');$m->execute([$o['id']]);
   $shipping=$this->db->prepare("SELECT sw.*,ra.label,ra.recipient_name,ra.street,ra.postal_code,ra.city,ra.country_code,s.status shipment_status,s.tracking_number,s.shipped_at,s.received_at FROM shipping_workflows sw LEFT JOIN recipient_addresses ra ON ra.id=sw.recipient_address_id LEFT JOIN shipments s ON s.shipping_workflow_id=sw.id WHERE sw.order_id=?");$shipping->execute([$o['id']]);$shipping=$shipping->fetch();

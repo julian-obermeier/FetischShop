@@ -49,7 +49,7 @@ final class OperationsController
         $this->append($items, $this->db->query("SELECT sr.order_id,sr.id source_id,'Spontanfoto' type,sr.motif title,sr.deadline due_at,sr.grace_ends_at grace_at,sr.status FROM spontaneous_requests sr WHERE sr.status NOT IN('uploaded','completed','cancelled')")->fetchAll());
         $this->append($items, $this->db->query("SELECT dc.order_id,dr.id source_id,'Beschädigungsnachforderung' type,dr.instructions title,dr.deadline due_at,dr.grace_ends_at grace_at,dr.status FROM damage_evidence_requests dr JOIN damage_cases dc ON dc.id=dr.damage_case_id WHERE dr.status='requested'")->fetchAll());
         $this->append($items, $this->db->query("SELECT oc.order_id,rr.id source_id,'Revision' type,CONCAT('Revision ',rr.round_no) title,rr.deadline due_at,rr.grace_ends_at grace_at,rr.status FROM revision_rounds rr JOIN digital_components dc ON dc.id=rr.digital_component_id JOIN order_components oc ON oc.id=dc.order_component_id WHERE rr.status IN('open','submitted')")->fetchAll());
-        $this->append($items, $this->db->query("SELECT NULL order_id,o.id source_id,'Privatangebot' type,o.title,o.acceptance_deadline due_at,o.acceptance_deadline grace_at,o.private_offer_status status FROM offers o WHERE o.is_private=1 AND o.private_offer_status='pending' AND o.acceptance_deadline IS NOT NULL")->fetchAll());
+        $this->append($items, $this->db->query("SELECT NULL order_id,o.id source_id,'Privatangebot' type,o.title,o.acceptance_deadline due_at,o.acceptance_deadline grace_at,o.private_offer_status status,CONCAT('/admin/angebote/',o.id,'/bearbeiten') url FROM offers o WHERE o.is_private=1 AND o.private_offer_status='pending' AND o.acceptance_deadline IS NOT NULL")->fetchAll());
 
         $now = time();
         foreach ($items as &$item) {
@@ -182,10 +182,44 @@ final class OperationsController
         ]);
     }
 
-    public function archive(): void
+    public function archive(Request $r): void
     {
-        $orders = $this->db->query("SELECT o.*,s.first_name,s.last_name,ov.title,fr.decision,fr.approved_amount FROM orders o JOIN sellers s ON s.id=o.seller_id JOIN offer_versions ov ON ov.id=o.offer_version_id LEFT JOIN final_reviews fr ON fr.order_id=o.id WHERE o.archived_at IS NOT NULL OR o.status='rejected' ORDER BY COALESCE(o.archived_at,o.finished_at,o.updated_at) DESC")->fetchAll();
-        View::render($this->root, 'admin/archive', ['pageTitle' => 'Archiv', 'orders' => $orders]);
+        $term=trim((string)$r->input('q'));
+        $decision=trim((string)$r->input('decision'));
+        $year=trim((string)$r->input('year'));
+        $where=["(o.archived_at IS NOT NULL OR o.status='rejected')"];
+        $params=[];
+
+        if($term!==''){
+            $like='%'.$term.'%';
+            $where[]="(o.order_number LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ? OR s.email LIKE ? OR ov.title LIKE ?)";
+            array_push($params,$like,$like,$like,$like,$like);
+        }
+        if(in_array($decision,['accepted','partially_accepted','rejected'],true)){
+            $where[]='fr.decision=?';$params[]=$decision;
+        }
+        if($year!==''&&preg_match('/^\\d{4}$/',$year)){
+            $where[]='YEAR(COALESCE(o.archived_at,o.finished_at,o.updated_at))=?';$params[]=(int)$year;
+        }
+
+        $sql="SELECT o.*,s.first_name,s.last_name,s.email,ov.title,fr.decision,fr.approved_amount
+            FROM orders o
+            JOIN sellers s ON s.id=o.seller_id
+            JOIN offer_versions ov ON ov.id=o.offer_version_id
+            LEFT JOIN final_reviews fr ON fr.order_id=o.id
+            WHERE ".implode(' AND ',$where)."
+            ORDER BY COALESCE(o.archived_at,o.finished_at,o.updated_at) DESC";
+        $q=$this->db->prepare($sql);$q->execute($params);
+        $years=$this->db->query("SELECT DISTINCT YEAR(COALESCE(archived_at,finished_at,updated_at)) y FROM orders WHERE archived_at IS NOT NULL OR status='rejected' ORDER BY y DESC")->fetchAll(PDO::FETCH_COLUMN);
+
+        View::render($this->root,'admin/archive',[
+            'pageTitle'=>'Archiv',
+            'orders'=>$q->fetchAll(),
+            'filterTerm'=>$term,
+            'filterDecision'=>$decision,
+            'filterYear'=>$year,
+            'years'=>$years,
+        ]);
     }
 
     public function systemStatus(): void

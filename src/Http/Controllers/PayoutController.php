@@ -40,6 +40,13 @@ final class PayoutController
         $entries = $this->db->prepare('SELECT we.* FROM wallet_entries we JOIN wallets w ON w.id=we.wallet_id WHERE w.seller_id=? ORDER BY we.created_at DESC LIMIT 100');
         $entries->execute([$seller['id']]);
 
+        $allocationQ = $this->db->prepare("SELECT poa.*,o.order_number FROM payout_order_allocations poa JOIN payout_requests pr ON pr.id=poa.payout_request_id JOIN orders o ON o.id=poa.order_id WHERE pr.seller_id=? ORDER BY poa.created_at,poa.id");
+        $allocationQ->execute([$seller['id']]);
+        $allocations = [];
+        foreach ($allocationQ->fetchAll() as $allocation) {
+            $allocations[(int) $allocation['payout_request_id']][] = $allocation;
+        }
+
         View::render($this->root, 'seller/wallet', [
             'pageTitle' => 'Wallet & Auszahlungen',
             'wallet' => $wallet,
@@ -47,6 +54,7 @@ final class PayoutController
             'methods' => $methods->fetchAll(),
             'requests' => $requests->fetchAll(),
             'payoutSettings' => $settings,
+            'payoutAllocations' => $allocations,
         ]);
     }
 
@@ -175,7 +183,12 @@ final class PayoutController
     public function adminIndex(): void
     {
         $rows = $this->db->query("SELECT pr.*,s.first_name,s.last_name,s.email FROM payout_requests pr JOIN sellers s ON s.id=pr.seller_id ORDER BY FIELD(pr.status,'requested','in_review','approved','paid','rejected','withdrawn'),pr.requested_at")->fetchAll();
-        View::render($this->root, 'admin/payouts', ['pageTitle' => 'Auszahlungen', 'payouts' => $rows]);
+        $allocationQ = $this->db->query("SELECT poa.*,o.order_number FROM payout_order_allocations poa JOIN orders o ON o.id=poa.order_id ORDER BY poa.payout_request_id,poa.created_at,poa.id");
+        $allocations = [];
+        foreach ($allocationQ->fetchAll() as $allocation) {
+            $allocations[(int) $allocation['payout_request_id']][] = $allocation;
+        }
+        View::render($this->root, 'admin/payouts', ['pageTitle' => 'Auszahlungen', 'payouts' => $rows, 'payoutAllocations' => $allocations]);
     }
 
     public function adminUpdate(Request $r, array $p): void

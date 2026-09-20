@@ -85,6 +85,7 @@ jobs:
           <?php
           require __DIR__ . '/src/Services/SellerScheduleService.php';
           require __DIR__ . '/src/Services/SellerNavigationService.php';
+          require __DIR__ . '/src/Services/CategoryFieldService.php';
           require __DIR__ . '/src/Services/Mailer.php';
           require __DIR__ . '/src/Services/SchedulerService.php';
 
@@ -103,6 +104,7 @@ jobs:
 
           (new App\Services\SellerScheduleService($pdo))->items(1, $from, $to);
           (new App\Services\SellerNavigationService($pdo))->counts(1);
+          (new App\Services\CategoryFieldService($pdo))->groupedForCategories([1,2,3]);
           $result = (new App\Services\SchedulerService($pdo))->run();
 
           if (!is_array($result)) {

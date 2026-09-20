@@ -4,6 +4,10 @@
 
 <section class="card"><h2>Ausstehende Datenbank-Updates</h2><?php if($pendingMigrations):?><ul><?php foreach($pendingMigrations as $m):?><li><?=App\Core\View::e(basename($m))?></li><?php endforeach;?></ul><p><a class="btn primary" href="/admin/system/update">Updates ausführen</a></p><?php else:?><p class="muted">Die Datenbank ist aktuell.</p><?php endif;?></section>
 
+<section class="card"><div class="section-head compact"><div><h2>Cronjob testen</h2><p class="muted">Führt den Scheduler einmal direkt aus. Das ist praktisch nach Deployment oder Cron-Änderungen.</p></div><form method="post" action="/admin/system/cron-test"><?=App\Core\Csrf::field()?><button class="btn primary">Cronjob jetzt ausführen</button></form></div></section>
+
+<section class="card admin-form"><h2>E-Mail-Versand testen</h2><p class="muted">Sendet eine echte Testnachricht über die aktuell konfigurierte PHP-Mailfunktion.</p><form method="post" action="/admin/system/mail-test" class="form-grid"><?=App\Core\Csrf::field()?><label class="full">Empfänger-E-Mail<input type="email" name="email" required placeholder="deine@adresse.de"></label><button class="btn full">Test-E-Mail senden</button></form></section>
+
 <section class="card"><h2>Letzter Cron-Lauf</h2>
 <?php if($schedulerResult): $labels=[
 'evidence_violations'=>'Fehlende Nachweise',

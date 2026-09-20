@@ -16,7 +16,7 @@ Eigener schlanker MVC-/Service-Kern mit PDO, Prepared Statements, CSRF, sicherer
 ## Status
 Aktiver Neuaufbau nach MASTERPROMPT vom 20.09.2026.
 
-Stand 0.4.0: Zusätzlich zu den 0.3.0-Grundworkflows sind echte Kombi-Aufträge mit komponentenbezogener Kategorieblockierung, Artikelerfassung, Vorabkontrolle und Tageslogik umgesetzt. Angebotsvorlagen sind wiederverwendbar, Optionen werden revisionssicher historisiert und können vor Start von der Verkäuferin bzw. danach nur vom Admin geändert werden. Bonus-, Preis- und Versandzuschussänderungen aktualisieren Wallet und Auftrag historisch. Vorabfotos besitzen einzelne Perspektiven, Retake-Fristen und unveränderte Originalhistorie. Beschädigungsneustarts erzeugen neue Durchläufe, neue Prechecks, setzen Optionen neu auf und historisieren Wallet-Storno/Neureservierung. Vorgeplante Aufgaben sowie eine verbindliche Auftragszusammenfassung vor Annahme sind integriert.
+Stand 0.5.0: Zusätzlich zu 0.4.0 sind komponentenbezogene Verstöße und Verlängerungen für Kombi-Aufträge umgesetzt. Spontane Fotoanforderungen, manuelle Zusatzaufgaben und Zusatztage werden einem konkreten Bestandteil zugeordnet. Die Wallet-Zustandsmaschine läuft nun über reserviert → in Prüfung → verfügbar/abgelehnt. Auszahlungen werden auf konkrete freigegebene Aufträge verteilt; vollständig ausgezahlte Aufträge werden automatisch archiviert und ihre Chats schreibgeschützt. Auftragsbestätigungen werden nach Annahme per E-Mail versandt, ohne die Auftragstransaktion bei Mailfehlern zurückzurollen. Physische und digitale Bestandteile durchlaufen ihren Abschlussstatus getrennt und werden erst gemeinsam zur Abschlussprüfung freigegeben. Hinzu kommen Session-/Cookie-Härtung, Security-Header, persistenter Installer-Lock, restriktive Konfigurationsrechte, Admin-Passwort-Rehashing sowie ein Admin-Systemstatus mit Cron-Heartbeat, Migrationen und Laufzeitchecks.
 
 ## Deployment nach Update
 
@@ -31,3 +31,11 @@ Danach als Administrator unter `/admin/system/update` alle ausstehenden SQL-Migr
 Der Cronjob soll regelmäßig, empfohlen alle 5 Minuten, `bin/cron.php` mit PHP CLI ausführen. Er verarbeitet Nachweisfenster, Erinnerungen, Nachfristen, Verstöße, Privatangebotsfristen, Revisionen, Beschädigungsnachforderungen und Versandfristen idempotent.
 
 Private Nachweise und digitale Medien liegen außerhalb des öffentlichen Webroots und werden nur über autorisierte PHP-Endpunkte ausgeliefert.
+
+
+### Migrationen ab 0.5.0
+
+- `014_component_extensions_payout_allocations.sql` – komponentenbezogene Verstöße/Verlängerungen und Auszahlung-zu-Auftrag-Zuordnung
+- `015_spontaneous_component_scope.sql` – komponentenbezogene spontane Fotoanforderungen
+
+Für Auftragsbestätigungen muss `base_url` in `config/runtime.php` auf die produktive HTTPS-URL zeigen. Der Adminbereich zeigt unter `/admin/system/status` den Cron-Heartbeat, PHP-/DB-Status, Schreibrechte und ausstehende Migrationen.

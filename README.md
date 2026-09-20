@@ -16,7 +16,7 @@ Eigener schlanker MVC-/Service-Kern mit PDO, Prepared Statements, CSRF, sicherer
 ## Status
 Aktiver Neuaufbau nach MASTERPROMPT vom 20.09.2026.
 
-Stand 0.5.0: Zusätzlich zu 0.4.0 sind komponentenbezogene Verstöße und Verlängerungen für Kombi-Aufträge umgesetzt. Spontane Fotoanforderungen, manuelle Zusatzaufgaben und Zusatztage werden einem konkreten Bestandteil zugeordnet. Die Wallet-Zustandsmaschine läuft nun über reserviert → in Prüfung → verfügbar/abgelehnt. Auszahlungen werden auf konkrete freigegebene Aufträge verteilt; vollständig ausgezahlte Aufträge werden automatisch archiviert und ihre Chats schreibgeschützt. Auftragsbestätigungen werden nach Annahme per E-Mail versandt, ohne die Auftragstransaktion bei Mailfehlern zurückzurollen. Physische und digitale Bestandteile durchlaufen ihren Abschlussstatus getrennt und werden erst gemeinsam zur Abschlussprüfung freigegeben. Hinzu kommen Session-/Cookie-Härtung, Security-Header, persistenter Installer-Lock, restriktive Konfigurationsrechte, Admin-Passwort-Rehashing sowie ein Admin-Systemstatus mit Cron-Heartbeat, Migrationen und Laufzeitchecks.
+Stand 0.6.0: Der Adminbereich wurde als eigene responsive Verwaltungsoberfläche mit fester, gruppierter Seitenleiste, globaler Suche, neuer Arbeitszentrale und zentraler Auftragsliste neu aufgebaut. Angebote, Kategorien und Aufgabenvorlagen werden vollständig über normale Formularfelder gepflegt; sichtbare JSON-Eingaben wurden entfernt. Angebotsregeln, Nachweisfenster, Vorabkontrollen, Versandschritte, Optionen, Kombi-Bestandteile und vorgeplante Aufgaben besitzen strukturierte Editoren mit Hinzufügen/Entfernen-Funktionen. Pflichtfotos in Zusatzaufgaben werden nun tatsächlich hochgeladen und geprüft. Der Cronjob wird für ALL-INKL primär über eine geheime URL ausgeführt, die im Adminbereich angezeigt und bei Bedarf neu erzeugt werden kann.
 
 ## Deployment nach Update
 
@@ -28,7 +28,15 @@ git pull origin main
 
 Danach als Administrator unter `/admin/system/update` alle ausstehenden SQL-Migrationen ausführen.
 
-Der Cronjob soll regelmäßig, empfohlen alle 5 Minuten, `bin/cron.php` mit PHP CLI ausführen. Er verarbeitet Nachweisfenster, Erinnerungen, Nachfristen, Verstöße, Privatangebotsfristen, Revisionen, Beschädigungsnachforderungen und Versandfristen idempotent.
+### Cronjob bei ALL-INKL
+
+Für ALL-INKL ist kein PHP-CLI-Aufruf mehr erforderlich. Nach dem Datenbankupdate unter `/admin/system/update` zeigt der Bereich `/admin/einstellungen` eine geheime Cron-URL nach dem Muster:
+
+```
+https://deine-domain.de/cron/GEHEIMER-SCHLUESSEL
+```
+
+Diese URL beim Hosting als URL-Cronjob hinterlegen und empfohlen alle 5 Minuten per GET aufrufen. Die URL verarbeitet Nachweisfenster, Erinnerungen, Nachfristen, Verstöße, Privatangebotsfristen, Revisionen, Beschädigungsnachforderungen und Versandfristen idempotent. Über „Neue geheime Cron-URL erzeugen“ kann der Schlüssel jederzeit ersetzt werden; die alte URL wird dann sofort ungültig. `bin/cron.php` bleibt lediglich als optionale technische Fallback-Möglichkeit im Repository.
 
 Private Nachweise und digitale Medien liegen außerhalb des öffentlichen Webroots und werden nur über autorisierte PHP-Endpunkte ausgeliefert.
 
@@ -37,5 +45,6 @@ Private Nachweise und digitale Medien liegen außerhalb des öffentlichen Webroo
 
 - `014_component_extensions_payout_allocations.sql` – komponentenbezogene Verstöße/Verlängerungen und Auszahlung-zu-Auftrag-Zuordnung
 - `015_spontaneous_component_scope.sql` – komponentenbezogene spontane Fotoanforderungen
+- `016_cron_url_token.sql` – geheimer Schlüssel für den ALL-INKL-URL-Cronjob
 
 Für Auftragsbestätigungen muss `base_url` in `config/runtime.php` auf die produktive HTTPS-URL zeigen. Der Adminbereich zeigt unter `/admin/system/status` den Cron-Heartbeat, PHP-/DB-Status, Schreibrechte und ausstehende Migrationen.

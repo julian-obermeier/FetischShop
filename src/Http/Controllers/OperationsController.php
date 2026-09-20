@@ -106,23 +106,31 @@ final class OperationsController
         $events = [];
         $params = [$from->format('Y-m-d H:i:s'), $to->format('Y-m-d H:i:s')];
 
-        $q = $this->db->prepare("SELECT o.id order_id,'Auftragsstart' type,CONCAT('#',o.order_number,' Start') title,o.started_at starts_at,NULL ends_at FROM orders o WHERE o.started_at>=? AND o.started_at<?");
+        $q = $this->db->prepare("SELECT o.id order_id,'Auftragsstart' type,CONCAT('#',o.order_number,' Start') title,o.started_at starts_at,NULL ends_at,CONCAT('/admin/auftraege/',o.id) url FROM orders o WHERE o.started_at>=? AND o.started_at<?");
         $q->execute($params);
         $this->append($events, $q->fetchAll());
 
-        $q = $this->db->prepare("SELECT od.order_id,'Nachweisfenster' type,CONCAT('#',o.order_number,' · ',ew.name) title,ew.starts_at,ew.ends_at FROM evidence_windows ew JOIN order_days od ON od.id=ew.order_day_id JOIN orders o ON o.id=od.order_id WHERE ew.starts_at>=? AND ew.starts_at<?");
+        $q = $this->db->prepare("SELECT od.order_id,'Nachweisfenster' type,CONCAT('#',o.order_number,' · ',ew.name) title,ew.starts_at,ew.ends_at,CONCAT('/admin/auftraege/',od.order_id) url FROM evidence_windows ew JOIN order_days od ON od.id=ew.order_day_id JOIN orders o ON o.id=od.order_id WHERE ew.starts_at>=? AND ew.starts_at<?");
         $q->execute($params);
         $this->append($events, $q->fetchAll());
 
-        $q = $this->db->prepare("SELECT t.order_id,'Aufgabe' type,CONCAT('#',o.order_number,' · ',t.title) title,te.due_at starts_at,NULL ends_at FROM task_executions te JOIN tasks t ON t.id=te.task_id JOIN orders o ON o.id=t.order_id WHERE te.due_at>=? AND te.due_at<?");
+        $q = $this->db->prepare("SELECT t.order_id,'Aufgabe' type,CONCAT('#',o.order_number,' · ',t.title) title,te.due_at starts_at,NULL ends_at,CONCAT('/admin/auftraege/',t.order_id) url FROM task_executions te JOIN tasks t ON t.id=te.task_id JOIN orders o ON o.id=t.order_id WHERE te.due_at>=? AND te.due_at<?");
         $q->execute($params);
         $this->append($events, $q->fetchAll());
 
-        $q = $this->db->prepare("SELECT oc.order_id,'Revision' type,CONCAT('#',o.order_number,' · Revision ',rr.round_no) title,rr.deadline starts_at,NULL ends_at FROM revision_rounds rr JOIN digital_components dc ON dc.id=rr.digital_component_id JOIN order_components oc ON oc.id=dc.order_component_id JOIN orders o ON o.id=oc.order_id WHERE rr.deadline>=? AND rr.deadline<?");
+        $q = $this->db->prepare("SELECT oc.order_id,'Revision' type,CONCAT('#',o.order_number,' · Revision ',rr.round_no) title,rr.deadline starts_at,NULL ends_at,CONCAT('/admin/auftraege/',oc.order_id) url FROM revision_rounds rr JOIN digital_components dc ON dc.id=rr.digital_component_id JOIN order_components oc ON oc.id=dc.order_component_id JOIN orders o ON o.id=oc.order_id WHERE rr.deadline>=? AND rr.deadline<?");
         $q->execute($params);
         $this->append($events, $q->fetchAll());
 
-        $q = $this->db->prepare("SELECT s.order_id,'Versand' type,CONCAT('#',o.order_number,' · Versand') title,s.shipped_at starts_at,NULL ends_at FROM shipments s JOIN orders o ON o.id=s.order_id WHERE s.shipped_at>=? AND s.shipped_at<?");
+        $q = $this->db->prepare("SELECT sw.order_id,'Versandschritt' type,CONCAT('#',o.order_number,' · ',ss.title) title,ss.deadline starts_at,DATE_ADD(ss.deadline,INTERVAL 1 HOUR) ends_at,CONCAT('/admin/auftraege/',sw.order_id) url FROM shipping_steps ss JOIN shipping_workflows sw ON sw.id=ss.shipping_workflow_id JOIN orders o ON o.id=sw.order_id WHERE ss.deadline IS NOT NULL AND ss.deadline>=? AND ss.deadline<?");
+        $q->execute($params);
+        $this->append($events, $q->fetchAll());
+
+        $q = $this->db->prepare("SELECT NULL order_id,'Privatangebot' type,CONCAT('Privatangebot · ',o.title) title,o.acceptance_deadline starts_at,NULL ends_at,CONCAT('/admin/angebote/',o.id,'/bearbeiten') url FROM offers o WHERE o.is_private=1 AND o.acceptance_deadline IS NOT NULL AND o.acceptance_deadline>=? AND o.acceptance_deadline<?");
+        $q->execute($params);
+        $this->append($events, $q->fetchAll());
+
+        $q = $this->db->prepare("SELECT s.order_id,'Versand' type,CONCAT('#',o.order_number,' · Versand') title,s.shipped_at starts_at,NULL ends_at,CONCAT('/admin/auftraege/',s.order_id) url FROM shipments s JOIN orders o ON o.id=s.order_id WHERE s.shipped_at>=? AND s.shipped_at<?");
         $q->execute($params);
         $this->append($events, $q->fetchAll());
 

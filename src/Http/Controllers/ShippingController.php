@@ -53,14 +53,16 @@ final class ShippingController
         $addressId = (int) $r->input('recipient_address_id');
         try {
             $this->db->beginTransaction();
-            $q = $this->db->prepare("SELECT o.*,ov.end_workflow_json,c.is_digital FROM orders o JOIN offer_versions ov ON ov.id=o.offer_version_id JOIN offers off ON off.id=o.offer_id JOIN categories c ON c.id=off.category_id WHERE o.id=? FOR UPDATE");
+            $q = $this->db->prepare("SELECT o.*,ov.end_workflow_json FROM orders o JOIN offer_versions ov ON ov.id=o.offer_version_id WHERE o.id=? FOR UPDATE");
             $q->execute([$orderId]);
             $order = $q->fetch();
             if (!$order) {
                 throw new RuntimeException('Auftrag nicht gefunden.');
             }
-            if ((int) $order['is_digital'] === 1) {
-                throw new RuntimeException('Digitale Aufträge besitzen keinen Versandworkflow.');
+            $physicalCount = $this->db->prepare("SELECT COUNT(*) FROM order_components WHERE order_id=? AND component_type='physical'");
+            $physicalCount->execute([$orderId]);
+            if ((int) $physicalCount->fetchColumn() === 0) {
+                throw new RuntimeException('Dieser Auftrag besitzt keine physischen Bestandteile für den Versand.');
             }
             if (!in_array($order['phase'], ['execution', 'shipping'], true)) {
                 throw new RuntimeException('Der Auftrag befindet sich nicht in der Durchführung.');
@@ -121,6 +123,7 @@ final class ShippingController
             }
 
             $this->db->prepare("INSERT INTO shipments(order_id,shipping_workflow_id,status,created_at) VALUES(?,?,'preparing',NOW())")->execute([$orderId, $workflowId]);
+            $this->db->prepare("UPDATE order_components SET status='shipping',updated_at=NOW() WHERE order_id=? AND component_type='physical'")->execute([$orderId]);
             $this->db->prepare("UPDATE orders SET status='shipping',phase='shipping',updated_at=NOW() WHERE id=?")->execute([$orderId]);
             $this->systemChat($orderId, 'Die Durchführung ist abgeschlossen. Der Versandworkflow wurde freigeschaltet.');
             $this->db->commit();
@@ -240,14 +243,38 @@ final class ShippingController
     public function received(Request $r, array $p): void
     {
         $orderId = (int) $p['id'];
-        $q = $this->db->prepare("UPDATE shipments s JOIN orders o ON o.id=s.order_id SET s.status='received',s.received_at=NOW(),o.status='reviewing',o.phase='review',o.updated_at=NOW() WHERE s.order_id=? AND s.status='shipped'");
-        $q->execute([$orderId]);
-        if (!$q->rowCount()) {
-            Session::flash('error', 'Wareneingang kann für diesen Auftrag derzeit nicht gesetzt werden.');
-        } else {
-            $this->systemChat($orderId, 'Wareneingang wurde bestätigt. Der Auftrag befindet sich in der Abschlussprüfung.');
+        try {
+            $this->db->beginTransaction();
+            $q = $this->db->prepare("SELECT * FROM shipments WHERE order_id=? FOR UPDATE");
+            $q->execute([$orderId]);
+            $shipment = $q->fetch();
+            if (!$shipment || $shipment['status'] !== 'shipped') {
+                throw new RuntimeException('Wareneingang kann für diesen Auftrag derzeit nicht gesetzt werden.');
+            }
+
+            $this->db->prepare("UPDATE shipments SET status='received',received_at=NOW() WHERE order_id=?")->execute([$orderId]);
+            $this->db->prepare("UPDATE order_components SET status='received',updated_at=NOW() WHERE order_id=? AND component_type='physical'")->execute([$orderId]);
+
+            $digitalOpen = $this->db->prepare("SELECT COUNT(*) FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE oc.order_id=? AND dc.status NOT IN('accepted','partially_accepted','rejected')");
+            $digitalOpen->execute([$orderId]);
+            if ((int) $digitalOpen->fetchColumn() === 0) {
+                $this->db->prepare("UPDATE orders SET status='reviewing',phase='review',updated_at=NOW() WHERE id=?")->execute([$orderId]);
+                $message = 'Wareneingang wurde bestätigt. Alle Bestandteile sind bereit für die Abschlussprüfung.';
+            } else {
+                $this->db->prepare("UPDATE orders SET status='running',phase='execution',updated_at=NOW() WHERE id=?")->execute([$orderId]);
+                $message = 'Wareneingang wurde bestätigt. Digitale Bestandteile sind noch nicht vollständig entschieden.';
+            }
+
+            $this->systemChat($orderId, $message);
+            $this->db->commit();
             Session::flash('success', 'Wareneingang bestätigt.');
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            Session::flash('error', $e->getMessage());
         }
+
         Response::redirect('/admin/auftraege/' . $orderId);
     }
 
@@ -330,10 +357,12 @@ final class ShippingController
 
             if ($decision === 'rejected') {
                 $this->db->prepare("UPDATE order_adjustments SET status='cancelled',cancelled_at=COALESCE(cancelled_at,NOW()) WHERE order_id=? AND status='reserved'")->execute([$orderId]);
+                $this->db->prepare("UPDATE order_components SET status='rejected',updated_at=NOW() WHERE order_id=? AND component_type='physical'")->execute([$orderId]);
                 $this->db->prepare("UPDATE orders SET status='rejected',phase='archive',finished_at=NOW(),archived_at=NOW(),updated_at=NOW() WHERE id=?")->execute([$orderId]);
                 $this->db->prepare('UPDATE chats SET is_readonly=1 WHERE order_id=?')->execute([$orderId]);
             } else {
                 $this->db->prepare("UPDATE order_adjustments SET status='released' WHERE order_id=? AND status='reserved'")->execute([$orderId]);
+                $this->db->prepare("UPDATE order_components SET status='completed',updated_at=NOW() WHERE order_id=? AND component_type='physical'")->execute([$orderId]);
                 $this->db->prepare("UPDATE orders SET status='completed',phase='payout',finished_at=NOW(),updated_at=NOW() WHERE id=?")->execute([$orderId]);
             }
 

@@ -48,7 +48,7 @@ final class OperationsController
         $this->append($items, $this->db->query("SELECT sr.order_id,sr.id source_id,'Spontanfoto' type,sr.motif title,sr.deadline due_at,sr.grace_ends_at grace_at,sr.status FROM spontaneous_requests sr WHERE sr.status NOT IN('uploaded','completed','cancelled')")->fetchAll());
         $this->append($items, $this->db->query("SELECT dc.order_id,dr.id source_id,'Beschädigungsnachforderung' type,dr.instructions title,dr.deadline due_at,dr.grace_ends_at grace_at,dr.status FROM damage_evidence_requests dr JOIN damage_cases dc ON dc.id=dr.damage_case_id WHERE dr.status='requested'")->fetchAll());
         $this->append($items, $this->db->query("SELECT oc.order_id,rr.id source_id,'Revision' type,CONCAT('Revision ',rr.round_no) title,rr.deadline due_at,rr.grace_ends_at grace_at,rr.status FROM revision_rounds rr JOIN digital_components dc ON dc.id=rr.digital_component_id JOIN order_components oc ON oc.id=dc.order_component_id WHERE rr.status IN('open','submitted')")->fetchAll());
-        $this->append($items, $this->db->query("SELECT o.id order_id,o.id source_id,'Privatangebot' type,o.title,o.acceptance_deadline due_at,o.acceptance_deadline grace_at,o.private_offer_status status FROM offers o WHERE o.is_private=1 AND o.private_offer_status='pending' AND o.acceptance_deadline IS NOT NULL")->fetchAll());
+        $this->append($items, $this->db->query("SELECT NULL order_id,o.id source_id,'Privatangebot' type,o.title,o.acceptance_deadline due_at,o.acceptance_deadline grace_at,o.private_offer_status status FROM offers o WHERE o.is_private=1 AND o.private_offer_status='pending' AND o.acceptance_deadline IS NOT NULL")->fetchAll());
 
         $now = time();
         foreach ($items as &$item) {

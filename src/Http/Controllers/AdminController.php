@@ -11,7 +11,8 @@ final class AdminController{
    'violations'=>"SELECT COUNT(*) FROM violations WHERE status IN('open','reviewed')",
    'damage'=>"SELECT COUNT(*) FROM damage_cases WHERE status IN('reported','evidence_requested','under_review')",
    'revisions'=>"SELECT COUNT(*) FROM revision_rounds WHERE status='open'",
-   'payouts'=>"SELECT COUNT(*) FROM payout_requests WHERE status IN('requested','in_review','approved')"
+   'payouts'=>"SELECT COUNT(*) FROM payout_requests WHERE status IN('requested','in_review','approved')",
+   'support'=>"SELECT COUNT(*) FROM support_tickets WHERE status IN('open','waiting_admin')"
   ] as $k=>$sql)$counts[$k]=(int)$this->db->query($sql)->fetchColumn();
   $due=$this->db->query("SELECT event_type,title,starts_at,order_id FROM calendar_events WHERE starts_at<=DATE_ADD(NOW(),INTERVAL 1 DAY) AND status='scheduled' ORDER BY starts_at LIMIT 20")->fetchAll();
   View::render($this->root,'admin/dashboard',['pageTitle'=>'Admin Dashboard','counts'=>$counts,'due'=>$due]);

@@ -1,6 +1,6 @@
 <?php
 namespace App\Http\Controllers;
-use App\Core\Auth;use App\Core\Request;use App\Core\Response;use App\Core\Session;use App\Core\View;use App\Services\OrderService;use PDO;use DateTimeImmutable;
+use App\Core\Auth;use App\Core\Request;use App\Core\Response;use App\Core\Session;use App\Core\View;use App\Services\OrderService;use App\Services\NotificationService;use App\Services\Mailer;use PDO;use DateTimeImmutable;
 final class AdminOrderController{
  public function __construct(private string $root,private PDO $db,private Auth $auth){}
  public function index(Request $r):void{
@@ -52,13 +52,15 @@ final class AdminOrderController{
   if($status==='rejected'&&trim((string)$r->input('retake_deadline'))!==''){$d=new DateTimeImmutable((string)$r->input('retake_deadline'));$deadline=$d->format('Y-m-d H:i:s');$grace=$d->modify('+1 hour')->format('Y-m-d H:i:s');}
   $q=$this->db->prepare('UPDATE evidences SET review_status=?,rejection_reason=?,rejection_note=?,retake_deadline=?,retake_grace_ends_at=? WHERE id=? AND order_id=?');
   $q->execute([$status,$reason?:null,$note?:null,$deadline,$grace,(int)$p['evidenceId'],(int)$p['id']]);
+  if($status==='rejected'){$msg='Ein Nachweis wurde beanstandet.'.($deadline?' Bitte reiche die Nachaufnahme bis '.date('d.m.Y H:i',strtotime($deadline)).' ein.':' Bitte prüfe die Begründung im Auftrag.');$this->notifySeller((int)$p['id'],'evidence','Nachweis beanstandet',$msg,true);}
   Session::flash('success',$status==='accepted'?'Nachweis wurde akzeptiert.':'Nachweis wurde beanstandet'.($deadline?' und mit Nachforderungsfrist versehen.':'.'));Response::redirect('/admin/auftraege/'.$p['id']);
  }
- public function approvePrecheck(Request $r,array $p):void{try{(new OrderService($this->db))->startAfterPrecheck((int)$p['id']);Session::flash('success','Vorabkontrolle freigegeben. Auftrag wurde unmittelbar gestartet.');}catch(\Throwable $e){Session::flash('error',$e->getMessage());}Response::redirect('/admin/auftraege/'.$p['id']);}
+ public function approvePrecheck(Request $r,array $p):void{try{(new OrderService($this->db))->startAfterPrecheck((int)$p['id']);$this->notifySeller((int)$p['id'],'order_start','Auftrag gestartet','Die Vorabkontrolle wurde vollständig freigegeben. Dein Auftrag ist jetzt gestartet.',true);Session::flash('success','Vorabkontrolle freigegeben. Auftrag wurde unmittelbar gestartet.');}catch(\Throwable $e){Session::flash('error',$e->getMessage());}Response::redirect('/admin/auftraege/'.$p['id']);}
  public function decideViolation(Request $r,array $p):void{
   $decision=(string)$r->input('decision');$id=(int)$p['violationId'];$q=$this->db->prepare('SELECT * FROM violations WHERE id=? AND order_id=?');$q->execute([$id,(int)$p['id']]);$v=$q->fetch();if(!$v)Response::abort(404);
   if($decision==='confirmed'&&$v['status']!=='confirmed'){$this->db->beginTransaction();try{$this->db->prepare("UPDATE violations SET status='confirmed',confirmed_at=NOW(),decided_at=NOW(),provisional_extension=0 WHERE id=?")->execute([$id]);$x=$this->db->prepare('SELECT id FROM extension_days WHERE violation_id=? ORDER BY id LIMIT 1 FOR UPDATE');$x->execute([$id]);$ext=$x->fetchColumn();if($ext){$this->db->prepare('UPDATE extension_days SET is_provisional=0,reason=? WHERE id=?')->execute([$v['description'],$ext]);$ext=(int)$ext;}else{$this->db->prepare("INSERT INTO extension_days(order_id,order_component_id,violation_id,source_type,source_id,reason,is_provisional,is_paid,created_at) VALUES(?,?,?,'violation',?,?,0,0,NOW())")->execute([$p['id'],$v['order_component_id']?:null,$id,$id,$v['description']]);$ext=(int)$this->db->lastInsertId();}$this->applyConfirmedExtension((int)$p['id'],$v['order_component_id']?(int)$v['order_component_id']:null,'violation_extension',$ext,$v['description']);$this->db->commit();}catch(\Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}}
   elseif($decision==='discarded'){$this->db->prepare("UPDATE violations SET status='discarded',provisional_extension=0,decided_at=NOW() WHERE id=?")->execute([$id]);$this->db->prepare("DELETE FROM extension_days WHERE violation_id=? AND is_provisional=1")->execute([$id]);}
+  if(in_array($decision,['confirmed','discarded'],true)){$this->notifySeller((int)$p['id'],'violation',$decision==='confirmed'?'Verstoß bestätigt':'Prüffall verworfen',$decision==='confirmed'?'Ein Prüffall wurde als Verstoß bestätigt. Eine daraus folgende Verlängerung ist im Auftrag sichtbar.':'Ein Prüffall wurde verworfen und erzeugt keine bestätigte Verlängerung.',true);}
   Session::flash('success','Verstoßentscheidung gespeichert.');Response::redirect('/admin/auftraege/'.$p['id']);
  }
  public function addManualDay(Request $r,array $p):void{
@@ -74,7 +76,7 @@ final class AdminOrderController{
     $this->db->prepare("INSERT INTO wallet_entries(wallet_id,order_id,entry_type,status,amount,metadata_json,created_at) VALUES(?,?,'paid_extra_day','reserved',?,?,NOW())")->execute([$wid,$orderId,$amount,json_encode(['order_component_id'=>$componentId,'manual_extra_day_id'=>$id],JSON_UNESCAPED_UNICODE)]);
     $this->db->prepare('UPDATE orders SET current_total=current_total+?,updated_at=NOW() WHERE id=?')->execute([$amount,$orderId]);
    }
-   $this->db->commit();Session::flash('success','Zusatztag wurde an „'.$component['title'].'“ angehängt.');
+   $this->db->commit();$this->notifySeller($orderId,'extra_day',$paid?'Bezahlter Zusatztag hinzugefügt':'Zusatztag hinzugefügt','Für „'.$component['title'].'“ wurde ein '.($paid?'bezahlter':'unbezahlter').' Zusatztag hinzugefügt.'.($paid?' Vergütung: '.number_format((float)$amount,2,',','.').' €.':''),true);Session::flash('success','Zusatztag wurde an „'.$component['title'].'“ angehängt.');
   }catch(\Throwable $e){if($this->db->inTransaction())$this->db->rollBack();Session::flash('error',$e->getMessage());}
   Response::redirect('/admin/auftraege/'.$orderId);
  }
@@ -113,9 +115,16 @@ final class AdminOrderController{
    $this->db->prepare('UPDATE orders SET current_total=?,updated_at=NOW() WHERE id=?')->execute([$newTotal,$orderId]);$this->db->prepare('UPDATE wallets SET balance_reserved=?,updated_at=NOW() WHERE id=?')->execute([$newReserved,$w['id']]);
    $this->db->prepare("INSERT INTO wallet_entries(wallet_id,order_id,entry_type,status,amount,metadata_json,created_at) VALUES(?,?,'order_adjustment','reserved',?,?,NOW())")->execute([$w['id'],$orderId,$amount,json_encode(['adjustment_id'=>$aid,'type'=>$type,'label'=>$label,'effective_day_no'=>$effective],JSON_UNESCAPED_UNICODE)]);
    $this->db->prepare("INSERT INTO system_events(seller_id,order_id,event_type,actor_type,actor_id,payload_json,created_at) VALUES(?,?,'order_adjustment','admin',?,?,NOW())")->execute([$o['seller_id'],$orderId,$this->auth->admin()['id']??null,json_encode(['id'=>$aid,'type'=>$type,'label'=>$label,'amount'=>$amount,'effective_day_no'=>$effective],JSON_UNESCAPED_UNICODE)]);
-   $this->db->commit();Session::flash('success','Auftragswert wurde historisiert angepasst.');
+   $this->db->commit();$this->notifySeller($orderId,'order_value','Auftragswert geändert',$label.': '.($amount>0?'+ ':'').number_format($amount,2,',','.').' €. Der neue Gesamtbetrag ist im Auftrag sichtbar.',true);Session::flash('success','Auftragswert wurde historisiert angepasst.');
   }catch(\Throwable $e){if($this->db->inTransaction())$this->db->rollBack();Session::flash('error',$e->getMessage());}
   Response::redirect('/admin/auftraege/'.$orderId);
+ }
+ private function notifySeller(int $orderId,string $type,string $title,string $message,bool $email=true):void{
+  try{
+   $q=$this->db->prepare('SELECT seller_id FROM orders WHERE id=?');$q->execute([$orderId]);$sellerId=(int)$q->fetchColumn();if(!$sellerId)return;
+   $config=require $this->root.'/config/app.php';
+   (new NotificationService($this->db,new Mailer($config)))->seller($sellerId,$type,$title,$message,'/konto/auftraege/'.$orderId,$email);
+  }catch(\Throwable){}
  }
  public function cancelBonus(Request $r,array $p):void{
   $orderId=(int)$p['id'];$adjustmentId=(int)$p['adjustmentId'];$this->db->beginTransaction();try{

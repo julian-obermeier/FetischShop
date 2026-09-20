@@ -84,6 +84,8 @@ final class App
             $adminWork = new AdminWorkController($this->root, $db, $auth);
             $adminTasks = new AdminTaskController($this->root, $db);
             $sellerOffers = new SellerOfferController($db, $auth);
+            $payouts = new PayoutController($this->root, $db, $auth);
+            $updater = new UpdaterController($this->root, $db);
 
             $router->get('/media/evidence/{id}', [$media, 'evidence']);
 
@@ -115,7 +117,10 @@ final class App
             $router->post('/konto/profil', [$profile, 'update'], [$csrf, $sellerOnly]);
             $router->post('/konto/profil/email', [$profile, 'changeEmail'], [$csrf, $sellerOnly]);
             $router->get('/konto/auftraege', [$seller, 'orders'], [$verifiedSeller]);
-            $router->get('/konto/wallet', [$seller, 'wallet'], [$sellerOnly]);
+            $router->get('/konto/wallet', [$payouts, 'sellerIndex'], [$sellerOnly]);
+            $router->post('/konto/wallet/methode', [$payouts, 'saveMethod'], [$csrf, $sellerOnly]);
+            $router->post('/konto/wallet/auszahlung', [$payouts, 'request'], [$csrf, $sellerOnly]);
+            $router->post('/konto/wallet/auszahlung/{id}/zurueckziehen', [$payouts, 'withdraw'], [$csrf, $sellerOnly]);
             $router->get('/konto/benachrichtigungen', [$seller, 'notifications'], [$sellerOnly]);
             $router->post('/konto/angebote/{id}/annehmen', [$orders, 'acceptOffer'], [$csrf, $verifiedSeller]);
             $router->post('/konto/angebote/{id}/ablehnen', [$sellerOffers, 'decline'], [$csrf, $verifiedSeller]);
@@ -132,6 +137,10 @@ final class App
             $router->post('/admin/login', [$adminAuth, 'login'], [$csrf]);
             $router->post('/admin/logout', [$adminAuth, 'logout'], [$csrf, $adminOnly]);
             $router->get('/admin', [$admin, 'dashboard'], [$adminOnly]);
+            $router->get('/admin/auszahlungen', [$payouts, 'adminIndex'], [$adminOnly]);
+            $router->post('/admin/auszahlungen/{id}', [$payouts, 'adminUpdate'], [$csrf, $adminOnly]);
+            $router->get('/admin/system/update', [$updater, 'index'], [$adminOnly]);
+            $router->post('/admin/system/update', [$updater, 'run'], [$csrf, $adminOnly]);
             $router->get('/admin/verkaeuferinnen', [$adminSellers, 'index'], [$adminOnly]);
             $router->get('/admin/verkaeuferinnen/{id}', [$adminSellers, 'show'], [$adminOnly]);
             $router->post('/admin/verkaeuferinnen/{id}', [$adminSellers, 'update'], [$csrf, $adminOnly]);

@@ -275,7 +275,7 @@ final class SellerController
         $q=$this->db->prepare('UPDATE notifications SET read_at=COALESCE(read_at,NOW()) WHERE id=? AND seller_id=?');
         $q->execute([$id,$s['id']]);
         $redirect=trim((string)$r->input('redirect'));
-        if($redirect!=='' && str_starts_with($redirect,'/'))Response::redirect($redirect);
+        if($redirect!=='' && str_starts_with($redirect,'/') && !str_starts_with($redirect,'//') && !str_contains($redirect,"\n") && !str_contains($redirect,"\r"))Response::redirect($redirect);
         Response::redirect('/konto/benachrichtigungen');
     }
 

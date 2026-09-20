@@ -1,10 +1,10 @@
 <?php
 $groupLabels=[
- 'overdue'=>['Überfällig','Frist und Nachfrist sind bereits abgelaufen.'],
- 'now'=>['Jetzt fällig','Die eigentliche Frist ist erreicht, die Nachfrist läuft noch.'],
- 'today'=>['Heute','Noch heute zu erledigen.'],
- 'tomorrow'=>['Morgen','Für morgen eingeplant.'],
- 'later'=>['Später','Weitere anstehende Termine.'],
+ 'overdue'=>['Überfällig','Diese Frist ist bereits vollständig abgelaufen.'],
+ 'now'=>['Jetzt erledigen','Die Hauptfrist ist abgelaufen; eine Nachfrist läuft noch.'],
+ 'today'=>['Heute','Diese Punkte sind heute fällig.'],
+ 'tomorrow'=>['Morgen','Diese Punkte stehen morgen an.'],
+ 'later'=>['Demnächst','Weitere anstehende Fristen.'],
 ];
 $typeLabels=[
  'evidence'=>'Nachweis',
@@ -19,7 +19,7 @@ $typeLabels=[
 ];
 ?>
 <main class="section">
-<div class="seller-hero"><div><span class="eyebrow">Zeitplanung</span><h1>Fristen & Kalender</h1><p>Alle offenen Termine, Fristen und Nachfristen an einem Ort.</p></div></div>
+<div class="seller-hero"><div><span class="eyebrow">Zeitplanung</span><h1>Fristen & Kalender</h1><p>Hier siehst du, was wann fällig wird – nach Dringlichkeit sortiert.</p></div></div>
 
 <form method="get" class="card filters">
 <select name="view">
@@ -51,7 +51,7 @@ $typeLabels=[
 <?php if(!array_filter($groups)):?><div class="empty">Im gewählten Zeitraum sind keine offenen Fristen vorhanden.</div><?php endif;?>
 
 <section class="card seller-section-card">
-<h2>Zeitraum</h2>
-<p class="muted"><?=date('d.m.Y', $from->getTimestamp())?> bis <?=date('d.m.Y', $to->getTimestamp())?>. Erledigte Termine werden in der Prioritätenansicht automatisch ausgeblendet.</p>
+<h2>Angezeigter Zeitraum</h2>
+<p class="muted"><?=date('d.m.Y', $from->getTimestamp())?> bis <?=date('d.m.Y', $to->getTimestamp())?>. Erledigte Punkte werden aus dieser Übersicht automatisch entfernt.</p>
 </section>
 </main>

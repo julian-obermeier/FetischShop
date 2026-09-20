@@ -143,11 +143,14 @@ final class OrderController{
    if($cameraRequired&&$captureSource!=='live_camera')throw new RuntimeException('Für diesen Nachweis ist eine Aufnahme direkt über die Plattformkamera erforderlich.');
 
    $cfg=require $this->root.'/config/app.php';
-   $file=(new PrivateStorage($cfg['private_storage']))->storeUploaded($r->files['evidence']??[],'evidence',['image/jpeg','image/png','image/webp'],12*1024*1024);
+   $file=(new PrivateStorage($cfg['private_storage']))->storeUploaded($r->files['evidence']??[],'evidence',['image/jpeg','image/png','image/webp'],12*1024*1024,480);
    $metadata=json_encode([
     'user_agent'=>$r->server['HTTP_USER_AGENT']??null,
     'capture_source'=>$captureSource,
     'retake'=>$retakeOf!==null,
+    'image_width'=>$file['image_width']??null,
+    'image_height'=>$file['image_height']??null,
+    'image_megapixels'=>$file['image_megapixels']??null,
    ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
 
    $this->db->beginTransaction();

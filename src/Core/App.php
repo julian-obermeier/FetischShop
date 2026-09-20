@@ -7,6 +7,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\SellerController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\AdminOrderController;
 
 final class App{
  public function __construct(private string $root){}
@@ -17,7 +19,7 @@ final class App{
     $installer=new InstallerController($this->root);
     $router->get('/install',[$installer,'show']);
     $router->post('/install',[$installer,'install']);
-    if($request->path!=='/install') Response::redirect('/install');
+    if($request->path!=='/install')Response::redirect('/install');
     $router->dispatch($request);return;
    }
    $db=Database::connection($this->root);
@@ -32,6 +34,8 @@ final class App{
    $seller=new SellerController($this->root,$db,$auth);
    $adminAuth=new AdminAuthController($this->root,$db,$auth);
    $admin=new AdminController($this->root,$db,$auth);
+   $orders=new OrderController($this->root,$db,$auth);
+   $adminOrders=new AdminOrderController($this->root,$db,$auth);
 
    $router->get('/',[$public,'home']);
    $router->get('/angebote',[$public,'offers']);
@@ -60,6 +64,11 @@ final class App{
    $router->get('/konto/auftraege',[$seller,'orders'],[$verifiedSeller]);
    $router->get('/konto/wallet',[$seller,'wallet'],[$sellerOnly]);
    $router->get('/konto/benachrichtigungen',[$seller,'notifications'],[$sellerOnly]);
+   $router->post('/konto/angebote/{id}/annehmen',[$orders,'acceptOffer'],[$csrf,$verifiedSeller]);
+   $router->get('/konto/auftraege/{id}',[$orders,'show'],[$verifiedSeller]);
+   $router->post('/konto/auftraege/{id}/artikel',[$orders,'saveItem'],[$csrf,$verifiedSeller]);
+   $router->post('/konto/auftraege/{id}/nachweis',[$orders,'uploadEvidence'],[$csrf,$verifiedSeller]);
+   $router->post('/konto/auftraege/{id}/chat',[$orders,'sendChat'],[$csrf,$verifiedSeller]);
 
    $router->get('/admin/login',[$adminAuth,'loginForm']);
    $router->post('/admin/login',[$adminAuth,'login'],[$csrf]);
@@ -67,7 +76,20 @@ final class App{
    $router->get('/admin',[$admin,'dashboard'],[$adminOnly]);
    $router->get('/admin/kategorien',[$admin,'categories'],[$adminOnly]);
    $router->post('/admin/kategorien',[$admin,'createCategory'],[$csrf,$adminOnly]);
+   $router->post('/admin/kategorien/{id}',[$admin,'updateCategory'],[$csrf,$adminOnly]);
+   $router->post('/admin/kategorien/{id}/duplizieren',[$admin,'duplicateCategory'],[$csrf,$adminOnly]);
+   $router->post('/admin/kategorien/{id}/loeschen',[$admin,'deleteCategory'],[$csrf,$adminOnly]);
    $router->get('/admin/angebote',[$admin,'offers'],[$adminOnly]);
+   $router->get('/admin/angebote/neu',[$admin,'offerCreateForm'],[$adminOnly]);
+   $router->post('/admin/angebote/neu',[$admin,'createOffer'],[$csrf,$adminOnly]);
+   $router->get('/admin/angebote/{id}/bearbeiten',[$admin,'offerEditForm'],[$adminOnly]);
+   $router->post('/admin/angebote/{id}/bearbeiten',[$admin,'updateOffer'],[$csrf,$adminOnly]);
+   $router->get('/admin/auftraege/{id}',[$adminOrders,'show'],[$adminOnly]);
+   $router->post('/admin/auftraege/{id}/vorab-freigeben',[$adminOrders,'approvePrecheck'],[$csrf,$adminOnly]);
+   $router->post('/admin/auftraege/{id}/nachweise/{evidenceId}/pruefen',[$adminOrders,'reviewEvidence'],[$csrf,$adminOnly]);
+   $router->post('/admin/auftraege/{id}/verstoesse/{violationId}',[$adminOrders,'decideViolation'],[$csrf,$adminOnly]);
+   $router->post('/admin/auftraege/{id}/zusatztage',[$adminOrders,'addManualDay'],[$csrf,$adminOnly]);
+   $router->post('/admin/auftraege/{id}/chat',[$adminOrders,'sendChat'],[$csrf,$adminOnly]);
 
    $router->dispatch($request);
   }catch(\Throwable $e){

@@ -1,0 +1,32 @@
+name: Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  php-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: PHP syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            php -l "$file"
+          done < <(find . -type f -name '*.php' -print0)
+      - name: No unfinished core placeholders
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE 'TODO|FIXME|hier später implementieren|dummy function|placeholder' src views database public --include='*.php' --include='*.sql' --include='*.js' --include='*.css'; then
+            echo "Unfinished placeholder markers found."
+            exit 1
+          fi

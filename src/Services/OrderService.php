@@ -10,7 +10,7 @@ final class OrderService
 {
     public function __construct(private PDO $db, private ?string $root = null) {}
 
-    public function accept(int $sellerId, int $offerId, array $optionIds = [], bool $rightsAccepted = false): int
+    public function accept(int $sellerId, int $offerId, array $optionIds = [], bool $rightsAccepted = false, array $consents = []): int
     {
         $this->db->beginTransaction();
 
@@ -76,6 +76,9 @@ final class OrderService
                 }
             }
 
+            if (empty($consents['adult_confirmed']) || empty($consents['own_goods_confirmed']) || empty($consents['no_third_parties_confirmed']) || empty($consents['summary_confirmed'])) {
+                throw new RuntimeException('Alle erforderlichen Bestätigungen müssen vor der Auftragsannahme abgegeben werden.');
+            }
             if ($hasDigital && !$rightsAccepted) {
                 throw new RuntimeException('Die Rechtevereinbarung muss vor Annahme eines Angebots mit digitalen Bestandteilen bestätigt werden.');
             }
@@ -120,6 +123,20 @@ final class OrderService
             $insert = $this->db->prepare("INSERT INTO orders(order_number,seller_id,offer_id,offer_version_id,status,phase,accepted_at,started_at,base_compensation,current_total,config_snapshot,created_at,updated_at) VALUES(?,?,?,?,?,?,NOW(),$startedAtSql,?,?,?,NOW(),NOW())");
             $insert->execute([$number, $sellerId, $offerId, $offer['id'], $initialStatus, $initialPhase, $offer['compensation'], $total, $snapshot]);
             $orderId = (int) $this->db->lastInsertId();
+
+            $this->db->prepare("INSERT INTO order_acceptance_consents(order_id,seller_id,terms_version,adult_confirmed,own_goods_confirmed,no_third_parties_confirmed,summary_confirmed,rights_confirmed,ip_address,user_agent,accepted_at) VALUES(?,?,?,?,?,?,?,?,?,?,NOW())")
+                ->execute([
+                    $orderId,
+                    $sellerId,
+                    (string)($consents['terms_version'] ?? '2026-09-20'),
+                    !empty($consents['adult_confirmed']) ? 1 : 0,
+                    !empty($consents['own_goods_confirmed']) ? 1 : 0,
+                    !empty($consents['no_third_parties_confirmed']) ? 1 : 0,
+                    !empty($consents['summary_confirmed']) ? 1 : 0,
+                    $rightsAccepted ? 1 : 0,
+                    !empty($consents['ip_address']) ? (string)$consents['ip_address'] : null,
+                    !empty($consents['user_agent']) ? (string)$consents['user_agent'] : null,
+                ]);
 
             $this->db->prepare("INSERT INTO order_runs(order_id,run_no,status,started_at,created_at) VALUES(?,1,?,?,NOW())")
                 ->execute([$orderId, $hasPhysical ? 'preparation' : 'running', $hasPhysical ? null : date('Y-m-d H:i:s')]);
@@ -185,6 +202,15 @@ final class OrderService
 
             $this->db->prepare("INSERT INTO system_events(seller_id,order_id,event_type,actor_type,actor_id,payload_json,created_at) VALUES(?,?,'order_accepted','seller',?,?,NOW())")
                 ->execute([$sellerId, $orderId, $sellerId, json_encode(['order_number' => $number, 'total' => $total, 'components' => count($definitions)], JSON_UNESCAPED_UNICODE)]);
+            $this->db->prepare("INSERT INTO system_events(seller_id,order_id,event_type,actor_type,actor_id,payload_json,created_at) VALUES(?,?,'order_acceptance_consents','seller',?,?,NOW())")
+                ->execute([$sellerId,$orderId,$sellerId,json_encode([
+                    'terms_version'=>(string)($consents['terms_version']??'2026-09-20'),
+                    'adult_confirmed'=>true,
+                    'own_goods_confirmed'=>true,
+                    'no_third_parties_confirmed'=>true,
+                    'summary_confirmed'=>true,
+                    'rights_confirmed'=>$rightsAccepted,
+                ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
 
             if (!$hasPhysical) {
                 $this->instantiateOfferTasks($orderId, (int) $offer['id'], new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')));

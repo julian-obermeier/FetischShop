@@ -10,7 +10,9 @@ final class PublicController{
   $seller=$this->auth->seller();if((int)$offer['is_private']===1&&(!$seller||(int)$seller['id']!==(int)$offer['private_seller_id']))Response::abort(404,'Angebot nicht gefunden.');
   if((int)$offer['is_private']===1&&in_array($offer['private_offer_status'],['declined','expired','accepted'],true)){$active=$this->db->prepare('SELECT id FROM orders WHERE seller_id=? AND offer_id=? ORDER BY id DESC LIMIT 1');$active->execute([$seller['id'],$offer['offer_id']]);if(!$active->fetchColumn())Response::abort(410,'Dieses Privatangebot ist nicht mehr annehmbar.');}
   $opt=$this->db->prepare("SELECT * FROM offer_options WHERE offer_version_id=? AND is_active=1 ORDER BY sort_order,id");$opt->execute([$offer['current_version_id']]);
-  View::render($this->root,'public/offer',['pageTitle'=>$offer['title'],'offer'=>$offer,'options'=>$opt->fetchAll(),'seller'=>$seller]);
+  $comp=$this->db->prepare("SELECT oc.*,c.name category_name,c.is_digital FROM offer_components oc JOIN categories c ON c.id=oc.category_id WHERE oc.offer_version_id=? ORDER BY oc.sort_order,oc.id");$comp->execute([$offer['current_version_id']]);$components=$comp->fetchAll();
+  $hasDigital=(int)$offer['is_digital']===1;foreach($components as $co){if($co['component_type']==='digital'||(int)$co['is_digital']===1){$hasDigital=true;break;}}
+  View::render($this->root,'public/offer',['pageTitle'=>$offer['title'],'offer'=>$offer,'options'=>$opt->fetchAll(),'components'=>$components,'hasDigital'=>$hasDigital,'seller'=>$seller]);
  }
  public function howItWorks():void{View::render($this->root,'public/how',['pageTitle'=>'So funktioniert es']);}
  public function faq():void{View::render($this->root,'public/faq',['pageTitle'=>'FAQ']);}

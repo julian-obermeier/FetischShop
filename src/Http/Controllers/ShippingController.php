@@ -338,17 +338,24 @@ final class ShippingController
             $this->db->prepare("INSERT INTO final_reviews(order_id,decision,approved_amount,internal_note,seller_message,decided_at) VALUES(?,?,?,?,?,NOW())")
                 ->execute([$orderId, $decision, $approved, trim((string) $r->input('internal_note')) ?: null, trim((string) $r->input('seller_message')) ?: null]);
 
+            (new OrderLifecycleService($this->db))->enterReview($orderId);
+
             $walletQ = $this->db->prepare('SELECT * FROM wallets WHERE seller_id=? FOR UPDATE');
             $walletQ->execute([$order['seller_id']]);
             $wallet = $walletQ->fetch();
-            $reservedRelease = min((float) $wallet['balance_reserved'], (float) $order['current_total']);
-            $newReserved = (float) $wallet['balance_reserved'] - $reservedRelease;
-            $newAvailable = (float) $wallet['balance_available'] + $approved;
-            $this->db->prepare('UPDATE wallets SET balance_reserved=?,balance_available=?,updated_at=NOW() WHERE id=?')->execute([$newReserved, $newAvailable, $wallet['id']]);
+            $reviewAmount = round((float) $order['current_total'], 2);
+            if ((float) $wallet['balance_in_review'] + 0.004 < $reviewAmount) {
+                throw new RuntimeException('Walletbetrag in Prüfung ist für diesen Auftrag inkonsistent.');
+            }
+
+            $newInReview = round((float) $wallet['balance_in_review'] - $reviewAmount, 2);
+            $newAvailable = round((float) $wallet['balance_available'] + $approved, 2);
+            $this->db->prepare('UPDATE wallets SET balance_in_review=?,balance_available=?,updated_at=NOW() WHERE id=?')
+                ->execute([$newInReview, $newAvailable, $wallet['id']]);
 
             if ($approved > 0) {
                 $this->db->prepare("INSERT INTO wallet_entries(wallet_id,order_id,entry_type,status,amount,balance_after,metadata_json,created_at) VALUES(?,?,'order_release','available',?,?,?,NOW())")
-                    ->execute([$wallet['id'], $orderId, $approved, $newAvailable, json_encode(['decision' => $decision], JSON_UNESCAPED_UNICODE)]);
+                    ->execute([$wallet['id'], $orderId, $approved, $newAvailable, json_encode(['decision' => $decision, 'review_balance_after' => $newInReview], JSON_UNESCAPED_UNICODE)]);
             }
             $rejectedAmount = max(0, (float) $order['current_total'] - $approved);
             if ($rejectedAmount > 0) {

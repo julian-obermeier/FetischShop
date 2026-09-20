@@ -1,21 +1,21 @@
 <main class="section">
-<div class="admin-page-intro"><div><span class="eyebrow">Wiederverwendbar</span><h1>Aufgabenbibliothek</h1><p>Aufgabenvorlagen mit normalen Feldern statt technischer Konfiguration.</p></div></div>
+<div class="admin-page-intro"><div><span class="eyebrow">Aufgabenvorlagen</span><h1>Aufgabenbibliothek</h1><p>Wiederverwendbare Zusatzaufgaben mit Frist, Vergütung, Eingabefeldern und Erforderliche Fotos.</p></div></div>
 
-<section class="card admin-form settings-section"><h2>Neue Aufgabenvorlage</h2>
+<section class="card admin-form settings-section"><h2>Neue Vorlage anlegen</h2>
 <form method="post" class="form-grid"><?=App\Core\Csrf::field()?>
 <label class="full">Titel<input name="title" required></label>
 <label class="full">Beschreibung<textarea name="description" rows="3"></textarea></label>
-<label>Standardfrist (Minuten)<input name="deadline_minutes" type="number" min="1" value="60"></label>
+<label>Frist nach Zuweisung (Minuten)<input name="deadline_minutes" type="number" min="1" value="60"></label>
 <label>Zusatzvergütung (€)<input name="compensation" type="number" min="0" step="0.01" value="0"></label>
-<label class="full">Bei Nichterfüllung<select name="violation_missing"><option value="one_violation">Einen Verstoß erzeugen</option><option value="none">Nur dokumentieren</option></select></label>
+<label class="full">Wenn die Aufgabe nicht erledigt wird<select name="violation_missing"><option value="one_violation">Prüffall erzeugen</option><option value="none">Nur im Verlauf dokumentieren</option></select></label>
 
 <div class="full">
-<div class="repeater-head"><div><h3>Eingabefelder für die Verkäuferin</h3><p class="muted">Zum Beispiel Bewertung, Freitext, Zahl oder Auswahl.</p></div><button type="button" class="btn" data-add-row="tpl-task-field" data-target="#task-fields-new">Feld hinzufügen</button></div>
+<div class="repeater-head"><div><h3>Angaben der Verkäuferin</h3><p class="muted">Lege fest, welche Angaben bei der Aufgabe ausgefüllt werden müssen.</p></div><button type="button" class="btn" data-add-row="tpl-task-field" data-target="#task-fields-new">Feld hinzufügen</button></div>
 <div class="structured-list" id="task-fields-new"></div>
 </div>
 
 <div class="full">
-<div class="repeater-head"><div><h3>Pflichtfotos</h3><p class="muted">Beschreibe, welche Bilder zu dieser Aufgabe eingereicht werden sollen.</p></div><button type="button" class="btn" data-add-row="tpl-task-photo" data-target="#task-photos-new">Fotoanforderung hinzufügen</button></div>
+<div class="repeater-head"><div><h3>Pflichtfotos</h3><p class="muted">Lege fest, welche Fotos zusammen mit der Aufgabe eingereicht werden müssen.</p></div><button type="button" class="btn" data-add-row="tpl-task-photo" data-target="#task-photos-new">Fotoanforderung hinzufügen</button></div>
 <div class="structured-list" id="task-photos-new"></div>
 </div>
 <button class="btn primary full">Vorlage speichern</button></form>

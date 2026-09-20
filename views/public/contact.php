@@ -6,7 +6,7 @@
 <label>Name<input name="name" value="<?=App\Core\View::e($old['name']??'')?>" autocomplete="name" required></label>
 <label>E-Mail-Adresse<input name="email" type="email" value="<?=App\Core\View::e($old['email']??'')?>" autocomplete="email" required></label>
 <?php else:?>
-<div class="full notice">Die Anfrage wird deinem Verkäuferinnen-Konto zugeordnet und an deine hinterlegte E-Mail-Adresse gesendet.</div>
+<div class="full notice"><strong>Anfrage als <?=App\Core\View::e(trim($seller['first_name'].' '.$seller['last_name']))?></strong><br>Die Anfrage wird deinem Verkäuferinnen-Konto zugeordnet. Bestätigungen und Antworten gehen an <strong><?=App\Core\View::e($seller['email'])?></strong>.</div>
 <?php endif;?>
 <label class="full">Betreff<input name="subject" value="<?=App\Core\View::e($old['subject']??'')?>" required placeholder="Worum geht es?"></label>
 <label class="full">Nachricht<textarea name="message" rows="7" minlength="10" required placeholder="Beschreibe dein Anliegen möglichst genau."><?=App\Core\View::e($old['message']??'')?></textarea><small class="field-help">Mindestens 10 Zeichen.</small></label>

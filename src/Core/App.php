@@ -181,6 +181,8 @@ final class App
             $router->get('/admin/protokoll', [$operations, 'audit'], [$adminOnly]);
             $router->get('/admin/einstellungen', [$operations, 'settings'], [$adminOnly]);
             $router->get('/admin/system/status', [$operations, 'systemStatus'], [$adminOnly]);
+            $router->post('/admin/system/cron-test', [$operations, 'runCronNow'], [$csrf, $adminOnly]);
+            $router->post('/admin/system/mail-test', [$operations, 'sendTestMail'], [$csrf, $adminOnly]);
             $router->post('/admin/einstellungen', [$operations, 'saveSettings'], [$csrf, $adminOnly]);
             $router->post('/admin/einstellungen/ausfall', [$operations, 'createOutage'], [$csrf, $adminOnly]);
             $router->post('/admin/einstellungen/cron-neu', [$operations, 'regenerateCronToken'], [$csrf, $adminOnly]);

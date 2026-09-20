@@ -4,10 +4,30 @@ use App\Core\Auth;use App\Core\Request;use App\Core\Response;use App\Core\Sessio
 final class AdminWorkController{
  public function __construct(private string $root,private PDO $db,private Auth $auth){}
  public function spontaneous(Request $r,array $p):void{
-  $id=(int)$p['id'];$count=max(1,(int)$r->input('count',1));$deadline=new DateTimeImmutable((string)$r->input('deadline'));$grace=$deadline->modify('+1 hour');$this->db->prepare("INSERT INTO spontaneous_requests(order_id,requested_count,motif,description,deadline,grace_ends_at,status,created_at) VALUES(?,?,?,?,?,?,'requested',NOW())")->execute([$id,$count,trim((string)$r->input('motif')),trim((string)$r->input('description')),$deadline->format('Y-m-d H:i:s'),$grace->format('Y-m-d H:i:s')]);$rid=(int)$this->db->lastInsertId();$o=$this->db->prepare('SELECT seller_id FROM orders WHERE id=?');$o->execute([$id]);$sid=(int)$o->fetchColumn();$this->db->prepare("INSERT INTO notifications(seller_id,dedupe_key,type,title,message,url,created_at) VALUES(?,?,'spontaneous','Zusätzliche Fotoanforderung',?, ?,NOW())")->execute([$sid,'spontaneous:'.$rid.':created','Zusätzliche Fotoanforderung: '.$count.' Foto(s) bis '.$deadline->format('d.m.Y H:i'),'/konto/auftraege/'.$id]);$this->systemChat($id,'Zusätzliche Fotoanforderung wurde erstellt.');Session::flash('success','Spontane Fotoanforderung erstellt.');Response::redirect('/admin/auftraege/'.$id);
+  $orderId=(int)$p['id'];
+  try{
+   $componentId=$this->resolveComponent($orderId,(int)$r->input('order_component_id'),true);
+   $count=max(1,(int)$r->input('count',1));$deadline=new DateTimeImmutable((string)$r->input('deadline'));$grace=$deadline->modify('+1 hour');
+   $this->db->prepare("INSERT INTO spontaneous_requests(order_id,order_component_id,requested_count,motif,description,deadline,grace_ends_at,status,created_at) VALUES(?,?,?,?,?,?,?,'requested',NOW())")
+    ->execute([$orderId,$componentId,$count,trim((string)$r->input('motif')),trim((string)$r->input('description')),$deadline->format('Y-m-d H:i:s'),$grace->format('Y-m-d H:i:s')]);
+   $rid=(int)$this->db->lastInsertId();$o=$this->db->prepare('SELECT seller_id FROM orders WHERE id=?');$o->execute([$orderId]);$sid=(int)$o->fetchColumn();
+   $this->db->prepare("INSERT INTO notifications(seller_id,dedupe_key,type,title,message,url,created_at) VALUES(?,?,'spontaneous','Zusätzliche Fotoanforderung',?,?,NOW())")
+    ->execute([$sid,'spontaneous:'.$rid.':created','Zusätzliche Fotoanforderung: '.$count.' Foto(s) bis '.$deadline->format('d.m.Y H:i'),'/konto/auftraege/'.$orderId]);
+   $this->systemChat($orderId,'Zusätzliche Fotoanforderung wurde erstellt.');Session::flash('success','Spontane Fotoanforderung erstellt.');
+  }catch(\Throwable $e){Session::flash('error',$e->getMessage());}
+  Response::redirect('/admin/auftraege/'.$orderId);
  }
  public function addTask(Request $r,array $p):void{
-  $orderId=(int)$p['id'];$templateId=(int)$r->input('template_id');$t=$this->db->prepare('SELECT * FROM task_templates WHERE id=? AND is_active=1');$t->execute([$templateId]);$tpl=$t->fetch();if(!$tpl){Session::flash('error','Aufgabenvorlage nicht gefunden.');Response::redirect('/admin/auftraege/'.$orderId);}$due=new DateTimeImmutable((string)$r->input('due_at'));$config=json_encode(['fields'=>json_decode($tpl['fields_json']?:'[]',true),'photos'=>json_decode($tpl['photos_json']?:'[]',true),'violation'=>json_decode($tpl['violation_json']?:'[]',true)],JSON_UNESCAPED_UNICODE);$this->db->prepare("INSERT INTO tasks(order_id,task_template_id,title,description,schedule_type,config_json,created_at) VALUES(?,?,?,?,'once',?,NOW())")->execute([$orderId,$templateId,$tpl['title'],$tpl['description'],$config]);$task=(int)$this->db->lastInsertId();$this->db->prepare("INSERT INTO task_executions(task_id,due_at,grace_ends_at,review_status,created_at) VALUES(?,?,?,'open',NOW())")->execute([$task,$due->format('Y-m-d H:i:s'),$due->modify('+1 hour')->format('Y-m-d H:i:s')]);$this->systemChat($orderId,'Eine Zusatzaufgabe wurde hinzugefügt: '.$tpl['title']);Session::flash('success','Zusatzaufgabe angelegt.');Response::redirect('/admin/auftraege/'.$orderId);
+  $orderId=(int)$p['id'];
+  try{
+   $componentId=$this->resolveComponent($orderId,(int)$r->input('order_component_id'),false);
+   $templateId=(int)$r->input('template_id');$t=$this->db->prepare('SELECT * FROM task_templates WHERE id=? AND is_active=1');$t->execute([$templateId]);$tpl=$t->fetch();if(!$tpl)throw new \RuntimeException('Aufgabenvorlage nicht gefunden.');
+   $due=new DateTimeImmutable((string)$r->input('due_at'));$config=json_encode(['fields'=>json_decode($tpl['fields_json']?:'[]',true),'photos'=>json_decode($tpl['photos_json']?:'[]',true),'violation'=>json_decode($tpl['violation_json']?:'[]',true)],JSON_UNESCAPED_UNICODE);
+   $this->db->prepare("INSERT INTO tasks(order_id,order_component_id,task_template_id,title,description,schedule_type,config_json,created_at) VALUES(?,?,?,?,?,'once',?,NOW())")->execute([$orderId,$componentId,$templateId,$tpl['title'],$tpl['description'],$config]);$task=(int)$this->db->lastInsertId();
+   $this->db->prepare("INSERT INTO task_executions(task_id,due_at,grace_ends_at,review_status,created_at) VALUES(?,?,?,'open',NOW())")->execute([$task,$due->format('Y-m-d H:i:s'),$due->modify('+1 hour')->format('Y-m-d H:i:s')]);
+   $this->systemChat($orderId,'Eine Zusatzaufgabe wurde hinzugefügt: '.$tpl['title']);Session::flash('success','Zusatzaufgabe angelegt.');
+  }catch(\Throwable $e){Session::flash('error',$e->getMessage());}
+  Response::redirect('/admin/auftraege/'.$orderId);
  }
  public function reviewTask(Request $r,array $p):void{$id=(int)$p['executionId'];$decision=(string)$r->input('decision');$q=$this->db->prepare('SELECT te.*,t.order_id,t.order_component_id FROM task_executions te JOIN tasks t ON t.id=te.task_id WHERE te.id=? AND t.order_id=?');$q->execute([$id,(int)$p['id']]);$x=$q->fetch();if(!$x)Response::abort(404);if($decision==='accepted')$this->db->prepare("UPDATE task_executions SET review_status='accepted' WHERE id=?")->execute([$id]);else{$this->db->prepare("UPDATE task_executions SET review_status='rejected' WHERE id=?")->execute([$id]);$this->ensureViolation((int)$p['id'],'task_not_completed','task_execution',$id,'Zusatzaufgabe wurde als nicht ausreichend bewertet.',$x['order_component_id']?(int)$x['order_component_id']:null);}Session::flash('success','Aufgabe geprüft.');Response::redirect('/admin/auftraege/'.$p['id']);}
  public function requestDamageEvidence(Request $r,array $p):void{$case=(int)$p['caseId'];$q=$this->db->prepare('SELECT * FROM damage_cases WHERE id=? AND order_id=?');$q->execute([$case,(int)$p['id']]);if(!$q->fetch())Response::abort(404);$deadline=new DateTimeImmutable((string)$r->input('deadline'));$this->db->prepare("INSERT INTO damage_evidence_requests(damage_case_id,field_type,instructions,deadline,grace_ends_at,status,created_at) VALUES(?,?,?,?,?,'requested',NOW())")->execute([$case,(string)$r->input('field_type'),trim((string)$r->input('instructions')),$deadline->format('Y-m-d H:i:s'),$deadline->modify('+1 hour')->format('Y-m-d H:i:s')]);$this->db->prepare("UPDATE damage_cases SET status='evidence_requested' WHERE id=?")->execute([$case]);Session::flash('success','Nachforderung erstellt.');Response::redirect('/admin/auftraege/'.$p['id']);}
@@ -57,6 +77,17 @@ final class AdminWorkController{
    }
   }
   Response::redirect('/admin/auftraege/'.$orderId);
+ }
+ private function resolveComponent(int $orderId,int $requested,bool $physicalOnly):int{
+  if($requested>0){
+   $sql='SELECT id FROM order_components WHERE id=? AND order_id=?'.($physicalOnly?" AND component_type='physical'":'');
+   $q=$this->db->prepare($sql);$q->execute([$requested,$orderId]);$id=$q->fetchColumn();if($id)return (int)$id;
+   throw new \RuntimeException('Ausgewählter Auftragsbestandteil ist ungültig.');
+  }
+  $sql='SELECT id FROM order_components WHERE order_id=?'.($physicalOnly?" AND component_type='physical'":'').' ORDER BY id';
+  $q=$this->db->prepare($sql);$q->execute([$orderId]);$ids=$q->fetchAll(PDO::FETCH_COLUMN);
+  if(count($ids)===1)return (int)$ids[0];
+  throw new \RuntimeException('Bei einem Kombi-Auftrag muss der betroffene Bestandteil ausgewählt werden.');
  }
  private function systemChat(int $orderId,string $message):void{$q=$this->db->prepare('SELECT id FROM chats WHERE order_id=?');$q->execute([$orderId]);if($id=$q->fetchColumn())$this->db->prepare("INSERT INTO chat_messages(chat_id,sender_type,message,created_at) VALUES(?,'system',?,NOW())")->execute([$id,$message]);}
  private function ensureViolation(int $orderId,string $type,string $sourceType,int $sourceId,string $desc,?int $orderComponentId=null):void{$q=$this->db->prepare('SELECT id FROM violations WHERE order_id=? AND violation_type=? AND source_type=? AND source_id=?');$q->execute([$orderId,$type,$sourceType,$sourceId]);if($q->fetch())return;$this->db->prepare("INSERT INTO violations(order_id,order_component_id,violation_type,source_type,source_id,description,status,provisional_extension,created_at) VALUES(?,?,?,?,?,?,'open',1,NOW())")->execute([$orderId,$orderComponentId,$type,$sourceType,$sourceId,$desc]);$v=(int)$this->db->lastInsertId();$this->db->prepare("INSERT INTO extension_days(order_id,order_component_id,violation_id,source_type,source_id,reason,is_provisional,is_paid,created_at) VALUES(?,?,?,'violation',?,?,1,0,NOW())")->execute([$orderId,$orderComponentId,$v,$sourceId,$desc]);}

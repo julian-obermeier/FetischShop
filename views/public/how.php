@@ -1,12 +1,18 @@
-<main class="section narrow"><span class="eyebrow">Ablauf</span><h1>So funktioniert die Plattform</h1><p class="muted">Von der Registrierung bis zur Auszahlung läuft jeder Auftrag in nachvollziehbaren Schritten ab.</p><div class="steps">
-<div><b>01</b><h3>Registrieren & E-Mail bestätigen</h3><p>Du legst dein persönliches Verkäuferinnen-Konto an, bestätigst die Volljährigkeit und anschließend deine E-Mail-Adresse. Erst danach können neue Aufträge angenommen werden.</p></div>
-<div><b>02</b><h3>Angebot prüfen</h3><p>Vor der Annahme siehst du Vergütung, Dauer, Bestandteile, Nachweisfenster, Aufgaben, Optionen und Versand- beziehungsweise digitale Abgabeanforderungen. Das System zeigt dir außerdem, wenn eine Kategorie bereits durch einen laufenden Auftrag belegt ist.</p></div>
-<div><b>03</b><h3>Auftrag verbindlich annehmen</h3><p>Mit der Annahme wird die konkrete Angebotsversion fest als Auftrag gespeichert. Die Vergütung wird zunächst im Wallet vorgemerkt. Bei digitalen Bestandteilen wird die erforderliche Rechtevereinbarung dokumentiert.</p></div>
-<div><b>04</b><h3>Artikel & Vorabkontrolle</h3><p>Bei physischen Aufträgen legst du zuerst den konkreten Artikel fest und reichst die geforderten Perspektiven ein. Der Auftrag startet erst, wenn die Vorabkontrolle vollständig freigegeben wurde.</p></div>
-<div><b>05</b><h3>Durchführung</h3><p>Im Auftrag und unter „Fristen & Kalender“ siehst du laufende Nachweisfenster, Zusatzaufgaben, spontane Fotoanforderungen und eventuelle Nachforderungen. Wichtige Ereignisse können zusätzlich als In-App-Benachrichtigung und E-Mail versendet werden.</p></div>
-<div><b>06</b><h3>Beschädigung oder Nachforderung</h3><p>Wenn ein Artikel beschädigt oder unbrauchbar wird, meldest du das direkt im Auftrag. Der Betreiber kann weitere Nachweise anfordern oder einen Neustart mit neuem Artikel freigeben.</p></div>
-<div><b>07</b><h3>Versand oder digitale Abgabe</h3><p>Physische Bestandteile durchlaufen einen Schritt-für-Schritt-Versandworkflow. Digitale Inhalte werden geschützt hochgeladen, versioniert und bei Bedarf in konkreten Revisionsrunden nachbearbeitet.</p></div>
-<div><b>08</b><h3>Abschlussprüfung</h3><p>Nach Eingang beziehungsweise digitaler Prüfung entscheidet der Betreiber über den Auftrag. Im Auftrag siehst du die Entscheidung, den freigegebenen Betrag und eine eventuelle Mitteilung.</p></div>
-<div><b>09</b><h3>Wallet & Auszahlung</h3><p>Der Betrag wechselt von „Vorgemerkt“ über „In Prüfung“ zu „Verfügbar“. Verfügbares Guthaben kannst du über eine hinterlegte Auszahlungsmethode beantragen.</p></div>
-<div><b>10</b><h3>Archiv</h3><p>Nach vollständiger Auszahlung wird der Auftrag archiviert. Die Historie bleibt im Verkäuferinnen-Bereich nachvollziehbar; der Auftragschat kann anschließend nur noch lesbar sein.</p></div>
-</div><div class="actions"><a class="btn primary" href="/registrieren">Konto erstellen</a><a class="btn ghost" href="/regeln">Plattformregeln lesen</a></div></main>
+<main class="section narrow">
+<div class="public-page-intro"><span class="eyebrow">So funktioniert's</span><h1>Von der Auswahl bis zur Auszahlung.</h1><p>Jeder Auftrag läuft nach demselben Grundprinzip. Du siehst jederzeit, was bereits erledigt ist und was als Nächstes ansteht.</p></div>
+
+<div class="steps polished-steps">
+<div><b>01</b><div><h3>Konto anlegen</h3><p>Registriere dich, bestätige deine Volljährigkeit und verifiziere deine E-Mail-Adresse.</p></div></div>
+<div><b>02</b><div><h3>Angebot prüfen</h3><p>Vergütung, Dauer, Nachweise, Aufgaben, Optionen und Abgabeanforderungen sind vor der Annahme vollständig sichtbar.</p></div></div>
+<div><b>03</b><div><h3>Auftrag annehmen</h3><p>Mit deiner Bestätigung wird genau diese Angebotsversion gespeichert. Die vereinbarte Vergütung wird im Wallet vorgemerkt.</p></div></div>
+<div><b>04</b><div><h3>Artikel & Vorabkontrolle</h3><p>Bei physischen Aufträgen legst du den konkreten Artikel fest und reichst die geforderten Startaufnahmen ein.</p></div></div>
+<div><b>05</b><div><h3>Auftrag durchführen</h3><p>Offene Nachweise, Aufgaben und Fristen siehst du direkt im Auftrag und zusätzlich unter „Fristen & Kalender“.</p></div></div>
+<div><b>06</b><div><h3>Probleme sauber melden</h3><p>Beschädigungen oder Unbrauchbarkeit werden direkt im Auftrag dokumentiert. So bleibt der gesamte Verlauf nachvollziehbar.</p></div></div>
+<div><b>07</b><div><h3>Versand oder digitale Abgabe</h3><p>Physische Artikel folgen einem klaren Versandablauf. Digitale Inhalte werden geschützt hochgeladen und versioniert.</p></div></div>
+<div><b>08</b><div><h3>Abschlussprüfung</h3><p>Nach Wareneingang oder digitaler Prüfung wird der Auftrag bewertet und die freigegebene Vergütung festgelegt.</p></div></div>
+<div><b>09</b><div><h3>Auszahlung</h3><p>Freigegebenes Guthaben wird im Wallet verfügbar und kann über deine hinterlegte Auszahlungsmethode beantragt werden.</p></div></div>
+<div><b>10</b><div><h3>Archiv</h3><p>Abgeschlossene Aufträge bleiben in deinem Bereich als nachvollziehbare Historie erhalten.</p></div></div>
+</div>
+
+<div class="actions"><a class="btn primary" href="/angebote">Angebote ansehen</a><a class="btn ghost" href="/registrieren">Konto erstellen</a></div>
+</main>

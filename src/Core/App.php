@@ -29,9 +29,14 @@ final class App
     public function run(Request $request): void
     {
         try {
+            Response::securityHeaders();
             $router = new Router();
+            $installLock = $this->root . '/storage/installed.lock';
 
             if (!Database::configured($this->root)) {
+                if (is_file($installLock)) {
+                    Response::abort(503, 'Installation ist gesperrt. Bitte die Datenbankkonfiguration serverseitig wiederherstellen.');
+                }
                 $installer = new InstallerController($this->root);
                 $router->get('/install', [$installer, 'show']);
                 $router->post('/install', [$installer, 'install']);
@@ -42,6 +47,15 @@ final class App
 
                 $router->dispatch($request);
                 return;
+            }
+
+            if (!is_file($installLock)) {
+                $dir = dirname($installLock);
+                if (!is_dir($dir)) {
+                    @mkdir($dir, 0770, true);
+                }
+                @file_put_contents($installLock, date('c') . PHP_EOL, LOCK_EX);
+                @chmod($installLock, 0640);
             }
 
             $db = Database::connection($this->root);

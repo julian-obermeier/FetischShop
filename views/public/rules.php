@@ -1,22 +1,25 @@
-<main class="section narrow legal">
-<span class="eyebrow">Klare Vorgaben</span><h1>Plattformregeln</h1>
-<div class="notice">Diese Regeln beschreiben die praktische Nutzung der Plattform. Ergänzend gelten die Plattform- und Verkäuferbedingungen.</div>
+<main class="section narrow legal public-legal-page">
+<div class="public-page-intro">
+  <span class="eyebrow">Plattformregeln</span>
+  <h1>Klare Regeln für jeden Auftrag.</h1>
+  <p>Diese Regeln gelten für die Nutzung der Plattform und für die Durchführung aller Aufträge.</p>
+</div>
 
-<section><h2>1. Nur volljährige Verkäuferinnen</h2><p>Ein Verkäuferinnen-Konto darf nur von einer volljährigen Person selbst genutzt werden. Konten dürfen nicht geteilt, verliehen oder stellvertretend für andere Personen verwendet werden.</p></section>
-<section><h2>2. Nur eigene Artikel und eigene Inhalte</h2><p>Artikel, Fotos, Videos, Audios, Texte und sonstige Nachweise müssen von der registrierten Verkäuferin selbst stammen beziehungsweise von ihr selbst für den Auftrag erstellt worden sein. Fremdware, fremde Inhalte und stellvertretend erfüllte Aufträge sind nicht erlaubt.</p></section>
-<section><h2>3. Keine Minderjährigen und keine nicht einwilligenden Dritten</h2><p>Minderjährige dürfen weder sichtbar noch hörbar noch anderweitig Bestandteil eines Auftrags oder Nachweises sein. Gleiches gilt für andere Personen ohne erforderliche Einwilligung.</p></section>
-<section><h2>4. Angebot vor Annahme vollständig prüfen</h2><p>Vor einer verbindlichen Annahme sind Vergütung, Dauer, Bestandteile, Nachweise, Zusatzaufgaben, Optionen, mögliche Verlängerungen sowie Versand- oder digitale Abgabeanforderungen zu prüfen. Nach der Annahme wird die zu diesem Zeitpunkt gültige Angebotsversion fest mit dem Auftrag verbunden.</p></section>
-<section><h2>5. Fristen und Nachweisfenster beachten</h2><p>Pflichtnachweise, Zusatzaufgaben, spontane Fotoanforderungen, Revisionen und Nachforderungen müssen innerhalb der im Auftrag angezeigten Frist eingereicht werden. Wenn eine Nachfrist besteht, wird sie separat angezeigt. Der Bereich „Fristen & Kalender“ dient als zusätzliche Übersicht; maßgeblich bleibt der konkrete Auftrag.</p></section>
-<section><h2>6. Nachweise unverändert einreichen</h2><p>Geforderte Nachweise sind aktuell, auftragsbezogen und entsprechend der konkreten Anweisung einzureichen. Beanstandete Aufnahmen werden nicht ersetzt oder überschrieben, sondern bleiben als Teil der Auftragshistorie erhalten; Nachaufnahmen werden zusätzlich gespeichert.</p></section>
-<section><h2>7. Artikelwechsel nur über den vorgesehenen Ablauf</h2><p>Ein normaler Artikelwechsel nach Beginn der physischen Durchführung ist nicht vorgesehen. Bei Beschädigung oder Unbrauchbarkeit muss der Beschädigungsvorgang verwendet werden. Ein Neustart erfolgt nur nach Anerkennung durch den Betreiber.</p></section>
-<section><h2>8. Zusatzaufgaben und spontane Anforderungen</h2><p>Während eines laufenden Auftrags können zusätzliche, zum Auftrag gehörende Aufgaben oder Fotoanforderungen gestellt werden. Sie werden mit Frist und – sofern vorgesehen – Nachfrist angezeigt und einem konkreten Auftragsbestandteil zugeordnet.</p></section>
-<section><h2>9. Verstöße werden geprüft</h2><p>Ein automatischer Frist- oder Nachweisfehler ist zunächst ein Prüffall. Erst die administrative Bestätigung macht daraus einen bestätigten Verstoß. Mögliche zusätzliche Durchführungstage werden dem betroffenen Bestandteil zugeordnet.</p></section>
-<section><h2>10. Versand erst nach Freigabe</h2><p>Physische Artikel werden erst versendet, wenn der Versandbereich im Auftrag freigeschaltet wurde. Die dort angezeigten Schritte sind der Reihe nach abzuarbeiten. Die Empfängeradresse darf ausschließlich für die Abwicklung des konkreten Auftrags verwendet werden.</p></section>
-<section><h2>11. Digitale Inhalte ausschließlich über die Plattform</h2><p>Digitale Abgaben werden über den geschützten Uploadbereich eingereicht und versioniert. Bei einer Revision müssen die angezeigten Änderungspunkte innerhalb der gesetzten Frist bearbeitet werden. Der jeweilige Rechte-Status wird im Auftrag angezeigt.</p></section>
-<section><h2>12. Kommunikation nur auftragsbezogen</h2><p>Der Auftragschat dient ausschließlich der Abwicklung des jeweiligen Auftrags. Nach vollständigem Abschluss und Archivierung kann der Chat schreibgeschützt werden.</p></section>
-<section><h2>13. Wallet ist kein Bankkonto</h2><p>Vorgemerkte und in Prüfung befindliche Beträge sind noch nicht auszahlbar. Erst als „Verfügbar“ ausgewiesenes Guthaben kann nach den konfigurierten Auszahlungsregeln beantragt werden.</p></section>
-<section><h2>14. Technische Ausfälle</h2><p>Bei einem vom Betreiber dokumentierten Plattformausfall werden betroffene Fristen nach den Systemregeln angepasst. Eigene Geräte-, Internet- oder Kameraprobleme gelten nicht automatisch als Plattformausfall.</p></section>
-<section><h2>15. Rechtswidrige Inhalte sind ausgeschlossen</h2><p>Nicht zulässig sind insbesondere rechtswidrige Inhalte oder Gegenstände, heimliche Aufnahmen, Inhalte ohne ausreichende Rechte sowie alles, dessen Besitz, Herstellung, Übertragung oder Versand gesetzlich verboten ist.</p></section>
+<div class="rule-grid">
+  <section><span>01</span><h2>Nur volljährig</h2><p>Ein Verkäuferinnen-Konto darf nur von einer volljährigen Person selbst genutzt werden.</p></section>
+  <section><span>02</span><h2>Nur eigene Artikel & Inhalte</h2><p>Artikel, Nachweise und digitale Inhalte müssen von dir selbst stammen oder von dir selbst erstellt werden.</p></section>
+  <section><span>03</span><h2>Keine unzulässigen Dritten</h2><p>Minderjährige und Personen ohne erforderliche Einwilligung dürfen nicht Bestandteil eines Auftrags oder Nachweises sein.</p></section>
+  <section><span>04</span><h2>Vor Annahme prüfen</h2><p>Vergütung, Dauer, Nachweise, Aufgaben, Optionen und Abgabeanforderungen sind vor der Annahme vollständig zu prüfen.</p></section>
+  <section><span>05</span><h2>Fristen einhalten</h2><p>Nachweise, Aufgaben, Revisionen und Nachforderungen müssen innerhalb der im Auftrag angezeigten Fristen eingereicht werden.</p></section>
+  <section><span>06</span><h2>Nachweise bleiben erhalten</h2><p>Beanstandete Aufnahmen werden nicht überschrieben. Nachaufnahmen werden zusätzlich gespeichert und separat geprüft.</p></section>
+  <section><span>07</span><h2>Beschädigungen melden</h2><p>Beschädigte oder unbrauchbare Artikel werden über den vorgesehenen Ablauf im Auftrag gemeldet. Ein Neustart erfolgt nur nach Freigabe.</p></section>
+  <section><span>08</span><h2>Prüffälle statt Automatismus</h2><p>Ein technischer Fehler oder eine verpasste Frist ist zunächst ein Prüffall. Erst die administrative Entscheidung macht daraus einen bestätigten Verstoß.</p></section>
+  <section><span>09</span><h2>Versand erst nach Freigabe</h2><p>Physische Artikel werden erst versendet, wenn der Versandbereich im Auftrag freigeschaltet wurde.</p></section>
+  <section><span>10</span><h2>Digitale Abgaben über die Plattform</h2><p>Digitale Inhalte werden geschützt hochgeladen, versioniert und bei Bedarf in einer Revision nachbearbeitet.</p></section>
+  <section><span>11</span><h2>Auftragschat bleibt auftragsbezogen</h2><p>Der Chat dient der Abwicklung des jeweiligen Auftrags und kann nach Abschluss nur noch lesbar sein.</p></section>
+  <section><span>12</span><h2>Wallet zeigt den echten Stand</h2><p>Vorgemerkte oder geprüfte Beträge sind noch nicht auszahlbar. Erst „Verfügbar“ bedeutet: Auszahlung kann beantragt werden.</p></section>
+</div>
 
-<div class="actions"><a class="btn primary" href="/angebote">Angebote ansehen</a><a class="btn ghost" href="/bedingungen">Vertragsbedingungen</a></div>
+<div class="notice rule-note"><strong>Wichtig:</strong> Rechtswidrige Inhalte, heimliche Aufnahmen sowie Inhalte oder Gegenstände ohne erforderliche Rechte sind ausgeschlossen.</div>
+<div class="actions"><a class="btn primary" href="/angebote">Angebote ansehen</a><a class="btn ghost" href="/bedingungen">Bedingungen lesen</a></div>
 </main>

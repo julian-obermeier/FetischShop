@@ -21,6 +21,7 @@ final class SupportController
         View::render($this->root,'public/contact',[
             'pageTitle'=>'Kontakt',
             'seller'=>$seller,
+            'old'=>Session::pullFlash('support_old',[]),
         ]);
     }
 
@@ -44,8 +45,20 @@ final class SupportController
             $email=$seller['email'];
         }
 
-        if($name===''||!filter_var($email,FILTER_VALIDATE_EMAIL)||$subject===''||mb_strlen($message)<10){
-            Session::flash('error','Bitte Name, gültige E-Mail-Adresse, Betreff und eine ausführliche Nachricht angeben.');
+        $errors=[];
+        if(!$seller && $name==='')$errors[]='Bitte gib deinen Namen an.';
+        if(!filter_var($email,FILTER_VALIDATE_EMAIL))$errors[]=$seller?'Die im Konto hinterlegte E-Mail-Adresse ist ungültig. Bitte korrigiere sie zuerst im Profil.':'Bitte gib eine gültige E-Mail-Adresse an.';
+        if($subject==='')$errors[]='Bitte gib einen Betreff an.';
+        if(mb_strlen($message)<10)$errors[]='Bitte beschreibe dein Anliegen mit mindestens 10 Zeichen.';
+
+        if($errors){
+            Session::flash('support_old',[
+                'name'=>$seller?'':$name,
+                'email'=>$seller?'':$email,
+                'subject'=>$subject,
+                'message'=>$message,
+            ]);
+            Session::flash('error',implode(' ', $errors));
             Response::redirect('/kontakt');
         }
 

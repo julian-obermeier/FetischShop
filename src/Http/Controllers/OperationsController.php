@@ -182,6 +182,78 @@ final class OperationsController
         ]);
     }
 
+    public function audit(Request $r): void
+    {
+        $term=trim((string)$r->input('q'));
+        $actor=trim((string)$r->input('actor'));
+        $eventType=trim((string)$r->input('event'));
+        $from=trim((string)$r->input('from'));
+        $to=trim((string)$r->input('to'));
+
+        $where=['1=1'];$params=[];
+        if($term!==''){
+            $like='%'.$term.'%';
+            $where[]="(o.order_number LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ? OR s.email LIKE ? OR se.event_type LIKE ?)";
+            array_push($params,$like,$like,$like,$like,$like);
+        }
+        if(in_array($actor,['seller','admin','system'],true)){$where[]='se.actor_type=?';$params[]=$actor;}
+        if($eventType!==''){$where[]='se.event_type=?';$params[]=$eventType;}
+        if($from!==''&&preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$from)){$where[]='se.created_at>=?';$params[]=$from.' 00:00:00';}
+        if($to!==''&&preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$to)){$where[]='se.created_at<=?';$params[]=$to.' 23:59:59';}
+
+        $sql="SELECT se.*,o.order_number,s.first_name,s.last_name,s.email,'system_event' source_type
+            FROM system_events se
+            LEFT JOIN orders o ON o.id=se.order_id
+            LEFT JOIN sellers s ON s.id=se.seller_id
+            WHERE ".implode(' AND ',$where)."
+            ORDER BY se.created_at DESC,se.id DESC LIMIT 500";
+        $q=$this->db->prepare($sql);$q->execute($params);$events=$q->fetchAll();
+
+        if($eventType==='' || str_starts_with($eventType,'rights_') || in_array($eventType,['seller_consented','revision_requested','admin_download'],true)){
+            $rightsWhere=['1=1'];$rightsParams=[];
+            if($term!==''){
+                $like='%'.$term.'%';
+                $rightsWhere[]="(o.order_number LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ? OR s.email LIKE ? OR dre.event_type LIKE ?)";
+                array_push($rightsParams,$like,$like,$like,$like,$like);
+            }
+            if(in_array($actor,['seller','admin','system'],true)){$rightsWhere[]='dre.actor_type=?';$rightsParams[]=$actor;}
+            if($eventType!==''){$rightsWhere[]='dre.event_type=?';$rightsParams[]=$eventType;}
+            if($from!==''&&preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$from)){$rightsWhere[]='dre.created_at>=?';$rightsParams[]=$from.' 00:00:00';}
+            if($to!==''&&preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$to)){$rightsWhere[]='dre.created_at<=?';$rightsParams[]=$to.' 23:59:59';}
+            $rightsSql="SELECT dre.id,dre.order_id,o.seller_id,dre.event_type,dre.actor_type,dre.actor_id,
+                JSON_OBJECT('digital_component_id',dre.digital_component_id,'clause_version',dre.clause_version,'note',dre.note) payload_json,
+                dre.created_at,o.order_number,s.first_name,s.last_name,s.email,'digital_rights' source_type
+                FROM digital_rights_events dre
+                JOIN orders o ON o.id=dre.order_id
+                LEFT JOIN sellers s ON s.id=o.seller_id
+                WHERE ".implode(' AND ',$rightsWhere)."
+                ORDER BY dre.created_at DESC,dre.id DESC LIMIT 300";
+            try{$rq=$this->db->prepare($rightsSql);$rq->execute($rightsParams);$events=array_merge($events,$rq->fetchAll());}catch(\Throwable){}
+        }
+
+        usort($events,static fn(array $a,array $b):int=>strcmp((string)$b['created_at'],(string)$a['created_at']));
+        $events=array_slice($events,0,500);
+        foreach($events as &$event){
+            $payload=json_decode((string)($event['payload_json']??'{}'),true);
+            $event['payload']=is_array($payload)?$payload:[];
+        }
+        unset($event);
+
+        $types=[];
+        try{$types=$this->db->query("SELECT event_type FROM system_events UNION SELECT event_type FROM digital_rights_events ORDER BY event_type")->fetchAll(PDO::FETCH_COLUMN);}catch(\Throwable){$types=$this->db->query("SELECT DISTINCT event_type FROM system_events ORDER BY event_type")->fetchAll(PDO::FETCH_COLUMN);}
+
+        View::render($this->root,'admin/audit',[
+            'pageTitle'=>'Protokoll',
+            'events'=>$events,
+            'eventTypes'=>$types,
+            'filterTerm'=>$term,
+            'filterActor'=>$actor,
+            'filterEvent'=>$eventType,
+            'filterFrom'=>$from,
+            'filterTo'=>$to,
+        ]);
+    }
+
     public function archive(Request $r): void
     {
         $term=trim((string)$r->input('q'));

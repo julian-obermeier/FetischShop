@@ -59,8 +59,10 @@ function enhanceCameraInputs(){
     if(input.dataset.cameraEnhanced==='1')return;
     input.dataset.cameraEnhanced='1';
 
+    const cameraRequired=input.dataset.cameraRequired==='1';
     const wrap=document.createElement('div');
     wrap.className='camera-tools';
+    if(cameraRequired)wrap.classList.add('camera-required');
 
     const direct=document.createElement('button');
     direct.type='button';
@@ -94,10 +96,18 @@ function enhanceCameraInputs(){
     preview.hidden=true;
     preview.alt='Vorschau des aufgenommenen Fotos';
 
+    const error=document.createElement('div');
+    error.className='camera-error';
+    error.hidden=true;
+
     actions.append(shoot,close);
     panel.append(video,actions);
-    wrap.append(direct,panel,preview);
+    wrap.append(direct,panel,preview,error);
     input.insertAdjacentElement('afterend',wrap);
+    if(cameraRequired){
+      input.classList.add('camera-required-input');
+      direct.textContent='Direktkamera öffnen';
+    }
 
     const form=input.closest('form');
     let source=form?.querySelector('input[name="capture_source"]');
@@ -116,7 +126,13 @@ function enhanceCameraInputs(){
     };
 
     direct.addEventListener('click',async()=>{
+      error.hidden=true;
       if(!navigator.mediaDevices?.getUserMedia){
+        if(cameraRequired){
+          error.textContent='Direktkamera ist vorgeschrieben, wird von diesem Browser aber nicht unterstützt. Bitte verwende einen aktuellen Browser mit Kamerazugriff.';
+          error.hidden=false;
+          return;
+        }
         input.click();
         return;
       }
@@ -125,7 +141,12 @@ function enhanceCameraInputs(){
         video.srcObject=stream;
         panel.hidden=false;
       }catch(_){
-        input.click();
+        if(cameraRequired){
+          error.textContent='Die Kamera konnte nicht geöffnet werden. Bitte erlaube den Kamerazugriff im Browser und versuche es erneut.';
+          error.hidden=false;
+        }else{
+          input.click();
+        }
       }
     });
 

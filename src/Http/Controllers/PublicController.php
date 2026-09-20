@@ -36,4 +36,5 @@ final class PublicController{
  public function imprint():void{View::render($this->root,'legal/imprint',['pageTitle'=>'Impressum']);}
  public function privacy():void{View::render($this->root,'legal/privacy',['pageTitle'=>'Datenschutz']);}
  public function terms():void{View::render($this->root,'legal/terms',['pageTitle'=>'Bedingungen']);}
+ public function rules():void{View::render($this->root,'public/rules',['pageTitle'=>'Plattformregeln']);}
 }

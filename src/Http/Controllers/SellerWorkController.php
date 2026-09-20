@@ -9,9 +9,49 @@ final class SellerWorkController{
   $o=$this->order((int)$p['id']);try{$rid=(int)$r->input('request_id');$q=$this->db->prepare('SELECT * FROM spontaneous_requests WHERE id=? AND order_id=?');$q->execute([$rid,$o['id']]);$req=$q->fetch();if(!$req)throw new RuntimeException('Anforderung nicht gefunden.');if(time()>strtotime($req['grace_ends_at']))throw new RuntimeException('Die Nachfrist ist abgelaufen.');$f=$this->storage()->storeUploaded($r->files['evidence']??[],'evidence',['image/jpeg','image/png','image/webp'],12*1024*1024);$run=$this->db->prepare('SELECT id FROM order_runs WHERE order_id=? ORDER BY run_no DESC LIMIT 1');$run->execute([$o['id']]);$this->db->prepare("INSERT INTO evidences(order_id,order_run_id,order_component_id,spontaneous_request_id,evidence_type,file_path,original_name,mime_type,file_size,sha256,captured_at,metadata_json,review_status,created_at) VALUES(?,?,?,?,'spontaneous',?,?,?,?,?,NOW(),'{}','pending',NOW())")->execute([$o['id'],$run->fetchColumn(),$req['order_component_id']?:null,$rid,$f['path'],$f['original_name'],$f['mime'],$f['size'],$f['sha256']]);$c=$this->db->prepare('SELECT COUNT(*) FROM evidences WHERE spontaneous_request_id=?');$c->execute([$rid]);if((int)$c->fetchColumn()>=(int)$req['requested_count'])$this->db->prepare("UPDATE spontaneous_requests SET status='uploaded' WHERE id=?")->execute([$rid]);Session::flash('success','Zusatzfoto wurde eingereicht.');}catch(\Throwable $e){Session::flash('error',$e->getMessage());}Response::redirect('/konto/auftraege/'.$o['id']);
  }
  public function submitTask(Request $r,array $p):void{
-  $o=$this->order((int)$p['id']);$eid=(int)$p['executionId'];$q=$this->db->prepare('SELECT te.*,t.config_json FROM task_executions te JOIN tasks t ON t.id=te.task_id WHERE te.id=? AND t.order_id=?');$q->execute([$eid,$o['id']]);$x=$q->fetch();if(!$x)Response::abort(404);if(time()>strtotime($x['grace_ends_at'])){Session::flash('error','Die Nachfrist ist abgelaufen.');Response::redirect('/konto/auftraege/'.$o['id']);}
-  $fields=json_decode($x['config_json']?:'{}',true)['fields']??[];$responses=$r->input('field',[]);if(!is_array($responses))$responses=[];$errors=[];foreach($fields as $f)if(!empty($f['required'])&&(!isset($responses[$f['key']])||$responses[$f['key']]===''||$responses[$f['key']]===[]))$errors[]=$f['label']??$f['key'];if($errors){Session::flash('error','Pflichtfelder fehlen: '.implode(', ',$errors));Response::redirect('/konto/auftraege/'.$o['id']);}
-  $this->db->prepare("UPDATE task_executions SET response_json=?,submitted_at=NOW(),review_status='pending' WHERE id=?")->execute([json_encode($responses,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$eid]);Session::flash('success','Aufgabe wurde eingereicht.');Response::redirect('/konto/auftraege/'.$o['id']);
+  $o=$this->order((int)$p['id']);$executionId=(int)$p['executionId'];
+  $q=$this->db->prepare('SELECT te.*,t.config_json,t.order_component_id FROM task_executions te JOIN tasks t ON t.id=te.task_id WHERE te.id=? AND t.order_id=?');
+  $q->execute([$executionId,$o['id']]);$x=$q->fetch();if(!$x)Response::abort(404);
+  if($x['submitted_at']){Session::flash('error','Diese Aufgabe wurde bereits eingereicht.');Response::redirect('/konto/auftraege/'.$o['id']);}
+  if(time()>strtotime($x['grace_ends_at'])){Session::flash('error','Die Nachfrist ist abgelaufen.');Response::redirect('/konto/auftraege/'.$o['id']);}
+
+  $config=json_decode($x['config_json']?:'{}',true)?:[];$fields=$config['fields']??[];$photos=$config['photos']??[];
+  $responses=$r->input('field',[]);if(!is_array($responses))$responses=[];$errors=[];
+  foreach($fields as $field){
+   $key=(string)($field['key']??'');if($key===''||empty($field['required']))continue;
+   if(!isset($responses[$key])||$responses[$key]===''||$responses[$key]===[])$errors[]=(string)($field['label']??$key);
+  }
+  foreach($photos as $photoIndex=>$photo){
+   $count=max(1,(int)($photo['required_count']??1));
+   for($n=0;$n<$count;$n++){
+    $fileKey='task_photo_'.$photoIndex.'_'.$n;
+    if(!isset($r->files[$fileKey])||(($r->files[$fileKey]['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK)){
+     $errors[]='Pflichtfoto: '.(string)($photo['label']??('Foto '.($photoIndex+1)));
+    }
+   }
+  }
+  if($errors){Session::flash('error','Pflichtangaben fehlen: '.implode(', ',array_unique($errors)));Response::redirect('/konto/auftraege/'.$o['id']);}
+
+  $this->db->beginTransaction();
+  try{
+   $run=$this->db->prepare('SELECT id FROM order_runs WHERE order_id=? ORDER BY run_no DESC LIMIT 1');$run->execute([$o['id']]);$runId=(int)$run->fetchColumn();
+   foreach($photos as $photoIndex=>$photo){
+    $count=max(1,(int)($photo['required_count']??1));
+    for($n=0;$n<$count;$n++){
+     $fileKey='task_photo_'.$photoIndex.'_'.$n;
+     $file=$this->storage()->storeUploaded($r->files[$fileKey],'evidence',['image/jpeg','image/png','image/webp'],12*1024*1024);
+     $meta=json_encode(['label'=>(string)($photo['label']??'Pflichtfoto'),'position'=>$n+1],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+     $this->db->prepare("INSERT INTO evidences(order_id,order_run_id,order_component_id,task_execution_id,evidence_type,file_path,original_name,mime_type,file_size,sha256,captured_at,metadata_json,review_status,created_at) VALUES(?,?,?,?,'task',?,?,?,?,?,NOW(),?,'pending',NOW())")
+      ->execute([$o['id'],$runId,$x['order_component_id']?:null,$executionId,$file['path'],$file['original_name'],$file['mime'],$file['size'],$file['sha256'],$meta]);
+    }
+   }
+   $this->db->prepare("UPDATE task_executions SET response_json=?,submitted_at=NOW(),review_status='pending' WHERE id=?")
+    ->execute([json_encode($responses,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$executionId]);
+   $this->db->commit();Session::flash('success','Aufgabe wurde vollständig eingereicht.');
+  }catch(\Throwable $e){
+   if($this->db->inTransaction())$this->db->rollBack();Session::flash('error',$e->getMessage());
+  }
+  Response::redirect('/konto/auftraege/'.$o['id']);
  }
  public function reportDamage(Request $r,array $p):void{
   $o=$this->order((int)$p['id']);

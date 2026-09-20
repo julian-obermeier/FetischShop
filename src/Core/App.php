@@ -22,6 +22,7 @@ use App\Http\Controllers\ShippingController;
 use App\Http\Controllers\DigitalController;
 use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\CronController;
+use App\Http\Controllers\AdminCategoryController;
 
 final class App
 {
@@ -110,6 +111,7 @@ final class App
             $digital = new DigitalController($this->root, $db, $auth);
             $operations = new OperationsController($this->root, $db);
             $cron = new CronController($this->root, $db);
+            $adminCategories = new AdminCategoryController($this->root, $db);
 
             $router->get('/cron/{token}', [$cron, 'run']);
             $router->get('/media/evidence/{id}', [$media, 'evidence']);
@@ -191,7 +193,11 @@ final class App
             $router->post('/admin/aufgaben', [$adminTasks, 'save'], [$csrf, $adminOnly]);
             $router->get('/admin/kategorien', [$admin, 'categories'], [$adminOnly]);
             $router->post('/admin/kategorien', [$admin, 'createCategory'], [$csrf, $adminOnly]);
+            $router->get('/admin/kategorien/{id}', [$adminCategories, 'show'], [$adminOnly]);
             $router->post('/admin/kategorien/{id}', [$admin, 'updateCategory'], [$csrf, $adminOnly]);
+            $router->post('/admin/kategorien/{id}/felder', [$adminCategories, 'addField'], [$csrf, $adminOnly]);
+            $router->post('/admin/kategorien/{id}/felder/{fieldId}', [$adminCategories, 'updateField'], [$csrf, $adminOnly]);
+            $router->post('/admin/kategorien/{id}/felder/{fieldId}/loeschen', [$adminCategories, 'deleteField'], [$csrf, $adminOnly]);
             $router->post('/admin/kategorien/{id}/duplizieren', [$admin, 'duplicateCategory'], [$csrf, $adminOnly]);
             $router->post('/admin/kategorien/{id}/loeschen', [$admin, 'deleteCategory'], [$csrf, $adminOnly]);
             $router->get('/admin/angebote', [$admin, 'offers'], [$adminOnly]);

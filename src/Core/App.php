@@ -16,6 +16,9 @@ use App\Http\Controllers\SellerWorkController;
 use App\Http\Controllers\AdminWorkController;
 use App\Http\Controllers\AdminTaskController;
 use App\Http\Controllers\SellerOfferController;
+use App\Http\Controllers\PayoutController;
+use App\Http\Controllers\UpdaterController;
+use App\Http\Controllers\ShippingController;
 
 final class App
 {
@@ -86,6 +89,7 @@ final class App
             $sellerOffers = new SellerOfferController($db, $auth);
             $payouts = new PayoutController($this->root, $db, $auth);
             $updater = new UpdaterController($this->root, $db);
+            $shipping = new ShippingController($this->root, $db, $auth);
 
             $router->get('/media/evidence/{id}', [$media, 'evidence']);
 
@@ -132,6 +136,7 @@ final class App
             $router->post('/konto/auftraege/{id}/aufgaben/{executionId}', [$sellerWork, 'submitTask'], [$csrf, $verifiedSeller]);
             $router->post('/konto/auftraege/{id}/beschaedigung', [$sellerWork, 'reportDamage'], [$csrf, $verifiedSeller]);
             $router->post('/konto/auftraege/{id}/beschaedigung/nachforderung/{requestId}', [$sellerWork, 'damageResponse'], [$csrf, $verifiedSeller]);
+            $router->post('/konto/auftraege/{id}/versand/{stepId}', [$shipping, 'sellerStep'], [$csrf, $verifiedSeller]);
 
             $router->get('/admin/login', [$adminAuth, 'loginForm']);
             $router->post('/admin/login', [$adminAuth, 'login'], [$csrf]);
@@ -141,6 +146,8 @@ final class App
             $router->post('/admin/auszahlungen/{id}', [$payouts, 'adminUpdate'], [$csrf, $adminOnly]);
             $router->get('/admin/system/update', [$updater, 'index'], [$adminOnly]);
             $router->post('/admin/system/update', [$updater, 'run'], [$csrf, $adminOnly]);
+            $router->get('/admin/empfaengeradressen', [$shipping, 'adminAddresses'], [$adminOnly]);
+            $router->post('/admin/empfaengeradressen', [$shipping, 'saveAddress'], [$csrf, $adminOnly]);
             $router->get('/admin/verkaeuferinnen', [$adminSellers, 'index'], [$adminOnly]);
             $router->get('/admin/verkaeuferinnen/{id}', [$adminSellers, 'show'], [$adminOnly]);
             $router->post('/admin/verkaeuferinnen/{id}', [$adminSellers, 'update'], [$csrf, $adminOnly]);
@@ -168,6 +175,9 @@ final class App
             $router->post('/admin/auftraege/{id}/aufgaben/{executionId}/pruefen', [$adminWork, 'reviewTask'], [$csrf, $adminOnly]);
             $router->post('/admin/auftraege/{id}/beschaedigung/{caseId}/nachfordern', [$adminWork, 'requestDamageEvidence'], [$csrf, $adminOnly]);
             $router->post('/admin/auftraege/{id}/beschaedigung/{caseId}/entscheiden', [$adminWork, 'decideDamage'], [$csrf, $adminOnly]);
+            $router->post('/admin/auftraege/{id}/versand/start', [$shipping, 'start'], [$csrf, $adminOnly]);
+            $router->post('/admin/auftraege/{id}/wareneingang', [$shipping, 'received'], [$csrf, $adminOnly]);
+            $router->post('/admin/auftraege/{id}/abschlusspruefung', [$shipping, 'finalReview'], [$csrf, $adminOnly]);
 
             $router->dispatch($request);
         } catch (\Throwable $e) {

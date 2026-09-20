@@ -16,7 +16,7 @@ Eigener schlanker MVC-/Service-Kern mit PDO, Prepared Statements, CSRF, sicherer
 ## Status
 Aktiver Neuaufbau nach MASTERPROMPT vom 20.09.2026.
 
-Stand 0.3.0: Authentifizierung, Angebots-/Auftragsbasis, Nachweise, Aufgaben, Verstöße, Beschädigungen, Wallet/Auszahlungen, Versand/Wareneingang/Abschlussprüfung, digitale Versionen und Revisionen, Admin-Entscheidungen, Fristen, Kalender, globale Suche, Archiv, Systemeinstellungen, Ausfalldokumentation, Web-Updater, Cron-Scheduler und PWA sind in produktiver Grundlogik implementiert. Weitere Masterprompt-Bereiche werden schrittweise vervollständigt; der vollständige Endtest erfolgt erst nach Gesamtumsetzung.
+Stand 0.4.0: Zusätzlich zu den 0.3.0-Grundworkflows sind echte Kombi-Aufträge mit komponentenbezogener Kategorieblockierung, Artikelerfassung, Vorabkontrolle und Tageslogik umgesetzt. Angebotsvorlagen sind wiederverwendbar, Optionen werden revisionssicher historisiert und können vor Start von der Verkäuferin bzw. danach nur vom Admin geändert werden. Bonus-, Preis- und Versandzuschussänderungen aktualisieren Wallet und Auftrag historisch. Vorabfotos besitzen einzelne Perspektiven, Retake-Fristen und unveränderte Originalhistorie. Beschädigungsneustarts erzeugen neue Durchläufe, neue Prechecks, setzen Optionen neu auf und historisieren Wallet-Storno/Neureservierung. Vorgeplante Aufgaben sowie eine verbindliche Auftragszusammenfassung vor Annahme sind integriert.
 
 ## Deployment nach Update
 

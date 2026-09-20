@@ -137,8 +137,6 @@ final class App
             $router->get('/faq', [$public, 'faq']);
             $router->get('/kontakt', [$support, 'publicForm']);
             $router->post('/kontakt', [$support, 'publicSubmit'], [$csrf]);
-            $router->get('/impressum', [$public, 'imprint']);
-            $router->get('/datenschutz', [$public, 'privacy']);
             $router->get('/bedingungen', [$public, 'terms']);
             $router->get('/regeln', [$public, 'rules']);
 

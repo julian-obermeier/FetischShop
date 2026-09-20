@@ -145,6 +145,7 @@ final class App
             $router->post('/konto/profil', [$profile, 'update'], [$csrf, $sellerOnly]);
             $router->post('/konto/profil/email', [$profile, 'changeEmail'], [$csrf, $sellerOnly]);
             $router->get('/konto/auftraege', [$seller, 'orders'], [$verifiedSeller]);
+            $router->get('/konto/fristen', [$seller, 'schedule'], [$verifiedSeller]);
             $router->get('/konto/wallet', [$payouts, 'sellerIndex'], [$sellerOnly]);
             $router->post('/konto/wallet/methode', [$payouts, 'saveMethod'], [$csrf, $sellerOnly]);
             $router->post('/konto/wallet/auszahlung', [$payouts, 'request'], [$csrf, $sellerOnly]);

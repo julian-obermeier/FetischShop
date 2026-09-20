@@ -37,6 +37,7 @@ final class CronController
             'spontaneous_violations' => 'Versäumte Spontanfotos',
             'damage_violations' => 'Versäumte Schadensnachforderungen',
             'revision_violations' => 'Versäumte Revisionen',
+            'digital_submission_violations' => 'Versäumte digitale Erstabgaben',
             'shipping_violations' => 'Versäumte Versandschritte',
             'expired_private_offers' => 'Abgelaufene Privatangebote',
             'reminders' => 'Erzeugte Erinnerungen',

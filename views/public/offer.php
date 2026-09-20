@@ -143,12 +143,31 @@ $durationText=trim(($offer['duration_value']??'').' '.($offer['duration_unit']??
     <span data-offer-option-count>Keine Zusatzoption ausgewählt</span>
 </div>
 
+<section class="offer-consent-group">
+    <div class="offer-section-heading"><span>✓</span><div><h2>Deine Bestätigungen</h2><p>Diese Angaben werden zusammen mit der Auftragsannahme dokumentiert.</p></div></div>
+
+    <label class="offer-confirm-card">
+        <input type="checkbox" name="adult_confirmation" value="1" required>
+        <span><b>Ich bin volljährig.</b><small>Ich bestätige, dass ich mindestens 18 Jahre alt bin und diesen Auftrag selbst annehme.</small></span>
+    </label>
+
+    <label class="offer-confirm-card">
+        <input type="checkbox" name="own_goods_confirmation" value="1" required>
+        <span><b>Nur eigene Artikel und eigene Inhalte</b><small>Ich bestätige, dass die für diesen Auftrag verwendeten Artikel, Fotos, Videos, Audios, Texte und sonstigen Inhalte von mir selbst stammen beziehungsweise von mir selbst erstellt werden.</small></span>
+    </label>
+
+    <label class="offer-confirm-card">
+        <input type="checkbox" name="no_third_parties_confirmation" value="1" required>
+        <span><b>Keine nicht einwilligenden Dritten</b><small>Ich bestätige, dass keine Minderjährigen und keine anderen Personen ohne erforderliche Einwilligung Bestandteil des Auftrags oder der Nachweise sind.</small></span>
+    </label>
+
 <?php if($hasDigital):?>
-<label class="offer-confirm-card">
-    <input type="checkbox" name="rights_acceptance" value="1" required>
-    <span><b>Rechtevereinbarung für digitale Abgabe bestätigen</b><small>Die Rechte werden erst im Rahmen der abschließenden Prüfung entsprechend der vereinbarten Regelung freigegeben.</small></span>
-</label>
+    <label class="offer-confirm-card">
+        <input type="checkbox" name="rights_acceptance" value="1" required>
+        <span><b>Rechtevereinbarung für digitale Abgabe bestätigen</b><small>Die Rechte werden erst im Rahmen der abschließenden Prüfung entsprechend der vereinbarten Regelung freigegeben.</small></span>
+    </label>
 <?php endif;?>
+</section>
 
 <div class="offer-binding-note">
     <span>✓</span>

@@ -35,7 +35,7 @@ final class App{
    $adminAuth=new AdminAuthController($this->root,$db,$auth);
    $admin=new AdminController($this->root,$db,$auth);
    $orders=new OrderController($this->root,$db,$auth);
-   $adminOrders=new AdminOrderController($this->root,$db,$auth);\n   $media=new MediaController($this->root,$db,$auth);
+   $adminOrders=new AdminOrderController($this->root,$db,$auth);\n   $media=new MediaController($this->root,$db,$auth);\n   $profile=new SellerProfileController($this->root,$db,$auth);\n   $adminSellers=new AdminSellerController($this->root,$db,$auth);
 
    $router->get('/media/evidence/{id}',[$media,'evidence']);\n\n   $router->get('/',[$public,'home']);
    $router->get('/angebote',[$public,'offers']);
@@ -60,7 +60,7 @@ final class App{
    $router->get('/passwort-zuruecksetzen/{token}',[$sellerAuth,'resetForm']);
    $router->post('/passwort-zuruecksetzen/{token}',[$sellerAuth,'reset'],[$csrf]);
 
-   $router->get('/konto',[$seller,'dashboard'],[$sellerOnly]);
+   $router->get('/konto',[$seller,'dashboard'],[$sellerOnly]);\n   $router->get('/konto/profil',[$profile,'show'],[$sellerOnly]);\n   $router->post('/konto/profil',[$profile,'update'],[$csrf,$sellerOnly]);\n   $router->post('/konto/profil/email',[$profile,'changeEmail'],[$csrf,$sellerOnly]);
    $router->get('/konto/auftraege',[$seller,'orders'],[$verifiedSeller]);
    $router->get('/konto/wallet',[$seller,'wallet'],[$sellerOnly]);
    $router->get('/konto/benachrichtigungen',[$seller,'notifications'],[$sellerOnly]);
@@ -74,7 +74,7 @@ final class App{
    $router->post('/admin/login',[$adminAuth,'login'],[$csrf]);
    $router->post('/admin/logout',[$adminAuth,'logout'],[$csrf,$adminOnly]);
    $router->get('/admin',[$admin,'dashboard'],[$adminOnly]);
-   $router->get('/admin/kategorien',[$admin,'categories'],[$adminOnly]);
+   $router->get('/admin/verkaeuferinnen',[$adminSellers,'index'],[$adminOnly]);\n   $router->get('/admin/verkaeuferinnen/{id}',[$adminSellers,'show'],[$adminOnly]);\n   $router->post('/admin/verkaeuferinnen/{id}',[$adminSellers,'update'],[$csrf,$adminOnly]);\n   $router->post('/admin/verkaeuferinnen/{id}/loeschen',[$adminSellers,'delete'],[$csrf,$adminOnly]);\n   $router->get('/admin/kategorien',[$admin,'categories'],[$adminOnly]);
    $router->post('/admin/kategorien',[$admin,'createCategory'],[$csrf,$adminOnly]);
    $router->post('/admin/kategorien/{id}',[$admin,'updateCategory'],[$csrf,$adminOnly]);
    $router->post('/admin/kategorien/{id}/duplizieren',[$admin,'duplicateCategory'],[$csrf,$adminOnly]);

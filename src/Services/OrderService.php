@@ -15,6 +15,21 @@ final class OrderService
         $this->db->beginTransaction();
 
         try {
+            $sellerQ = $this->db->prepare("SELECT id,birth_date,email_verified_at,deleted_at FROM sellers WHERE id=? FOR UPDATE");
+            $sellerQ->execute([$sellerId]);
+            $seller = $sellerQ->fetch();
+            if (!$seller || $seller['deleted_at']) {
+                throw new RuntimeException('Verkäuferinnenkonto ist nicht verfügbar.');
+            }
+            if (empty($seller['email_verified_at'])) {
+                throw new RuntimeException('Bitte bestätige zuerst deine E-Mail-Adresse.');
+            }
+            $birthDate = new DateTimeImmutable((string) $seller['birth_date'], new DateTimeZone('Europe/Berlin'));
+            $adultDate = (new DateTimeImmutable('today', new DateTimeZone('Europe/Berlin')))->modify('-18 years');
+            if ($birthDate > $adultDate) {
+                throw new RuntimeException('Die Plattform ist ausschließlich für volljährige Verkäuferinnen bestimmt.');
+            }
+
             $q = $this->db->prepare("SELECT o.id offer_id,o.seller_id private_seller_id,o.is_private,o.acceptance_deadline,o.title offer_title,ov.*,c.id category_id,c.name category_name,c.is_digital FROM offers o JOIN offer_versions ov ON ov.id=o.current_version_id JOIN categories c ON c.id=o.category_id WHERE o.id=? AND o.status='active' FOR UPDATE");
             $q->execute([$offerId]);
             $offer = $q->fetch();

@@ -135,6 +135,7 @@ final class App
             $router->post('/konto/angebote/{id}/ablehnen', [$sellerOffers, 'decline'], [$csrf, $verifiedSeller]);
             $router->get('/konto/auftraege/{id}', [$orders, 'show'], [$verifiedSeller]);
             $router->post('/konto/auftraege/{id}/artikel', [$orders, 'saveItem'], [$csrf, $verifiedSeller]);
+            $router->post('/konto/auftraege/{id}/optionen', [$orders, 'updateOptions'], [$csrf, $verifiedSeller]);
             $router->post('/konto/auftraege/{id}/nachweis', [$orders, 'uploadEvidence'], [$csrf, $verifiedSeller]);
             $router->post('/konto/auftraege/{id}/chat', [$orders, 'sendChat'], [$csrf, $verifiedSeller]);
             $router->post('/konto/auftraege/{id}/spontan', [$sellerWork, 'spontaneous'], [$csrf, $verifiedSeller]);

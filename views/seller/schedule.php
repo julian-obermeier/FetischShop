@@ -8,6 +8,8 @@ $groupLabels=[
 ];
 $typeLabels=[
  'evidence'=>'Nachweis',
+ 'retake'=>'Nachaufnahme',
+ 'digital_submission'=>'Digitale Abgabe',
  'task'=>'Zusatzaufgabe',
  'spontaneous'=>'Fotoanforderung',
  'revision'=>'Digitale Revision',

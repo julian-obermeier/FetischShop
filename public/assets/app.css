@@ -40,3 +40,5 @@
 }
 
 .camera-tools{display:grid;gap:10px;margin-top:8px}.camera-panel{padding:12px;border:1px solid #303744;border-radius:14px;background:#0c0f14}.camera-panel video{display:block;width:100%;max-height:460px;object-fit:contain;border-radius:10px;background:#000}.camera-panel .row-actions{margin-top:10px}.camera-preview{display:block;width:min(100%,420px);max-height:320px;object-fit:contain;border-radius:12px;border:1px solid #303744;background:#0b0d11}.camera-open{justify-self:start}
+
+.admin-order-nav{position:sticky;top:76px;z-index:16;display:flex;gap:8px;overflow-x:auto;padding:9px;margin:0 0 18px;background:rgba(13,16,21,.95);backdrop-filter:blur(12px);border:1px solid #282e38;border-radius:12px}.admin-order-nav a{white-space:nowrap;padding:8px 11px;border-radius:9px;color:#b9c0cb;font-size:.82rem;font-weight:750}.admin-order-nav a:hover{background:#1b2028;color:#fff}.admin-content section[id]{scroll-margin-top:140px}

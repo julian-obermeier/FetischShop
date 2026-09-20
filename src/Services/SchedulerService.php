@@ -37,6 +37,7 @@ final class SchedulerService
             $result['expired_private_offers'] = $this->privateOffers();
             $result['reminders'] = $this->reminders();
             $result['cleanup'] = $this->cleanup();
+            $this->recordHeartbeat($result);
             return $result;
         } finally {
             $this->release('global-cron');
@@ -345,6 +346,13 @@ final class SchedulerService
             return $default;
         }
         return in_array(strtolower((string) $value), ['1','true','yes','on'], true);
+    }
+
+    private function recordHeartbeat(array $result): void
+    {
+        $q = $this->db->prepare('INSERT INTO settings(setting_key,setting_value,updated_at) VALUES(?,?,NOW()) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_at=NOW()');
+        $q->execute(['scheduler_last_run', date('Y-m-d H:i:s')]);
+        $q->execute(['scheduler_last_result', json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
     }
 
     private function cleanup(): int

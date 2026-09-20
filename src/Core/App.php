@@ -68,6 +68,7 @@ final class App
             if ($sellerNav && (
                 $request->path === '/angebote' || str_starts_with($request->path, '/angebote/')
                 || $request->path === '/konto' || str_starts_with($request->path, '/konto/')
+                || $request->path === '/kontakt'
             )) {
                 $navCounts = (new \App\Services\SellerNavigationService($db))->counts((int) $sellerNav['id']);
                 Session::put('seller_nav_unread', $navCounts['unread']);

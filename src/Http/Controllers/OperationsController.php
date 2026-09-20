@@ -311,6 +311,14 @@ final class OperationsController
         $dbVersion = (string) $this->db->query('SELECT VERSION()')->fetchColumn();
         $privateStorage = $this->root . '/storage/private';
         $logDir = $this->root . '/storage/logs';
+        $appConfig = require $this->root . '/config/app.php';
+        $baseUrl = rtrim((string)($appConfig['base_url'] ?? ''), '/');
+        $publicRoot = realpath($this->root . '/public') ?: ($this->root . '/public');
+        $privateReal = realpath($privateStorage) ?: $privateStorage;
+        $privateOutsidePublic = !str_starts_with(str_replace('\\','/',$privateReal), rtrim(str_replace('\\','/',$publicRoot),'/') . '/');
+        $cronTokenQ = $this->db->prepare("SELECT setting_value FROM settings WHERE setting_key='cron_token'");
+        $cronTokenQ->execute();
+        $cronToken = (string)($cronTokenQ->fetchColumn() ?: '');
 
         $checks = [
             ['label' => 'PHP-Version', 'ok' => version_compare(PHP_VERSION, '8.1.0', '>='), 'value' => PHP_VERSION],
@@ -323,6 +331,10 @@ final class OperationsController
             ['label' => 'Cron-Heartbeat', 'ok' => $cronAge !== null && $cronAge <= 900, 'value' => $cronLastRun ? date('d.m.Y H:i:s', strtotime($cronLastRun)) . ' · vor ' . (int) floor($cronAge / 60) . ' Min.' : 'noch kein Lauf'],
             ['label' => 'Datenbank', 'ok' => true, 'value' => $dbVersion],
             ['label' => 'Migrationen', 'ok' => count($pending) === 0, 'value' => count($pending) === 0 ? 'aktuell' : count($pending) . ' offen'],
+            ['label' => 'Öffentliche URL', 'ok' => str_starts_with($baseUrl, 'https://'), 'value' => $baseUrl !== '' ? $baseUrl : 'nicht konfiguriert'],
+            ['label' => 'Cron-Schlüssel', 'ok' => strlen($cronToken) >= 32, 'value' => strlen($cronToken) >= 32 ? 'gesetzt' : 'fehlt / zu kurz'],
+            ['label' => 'Installationssperre', 'ok' => is_file($this->root . '/storage/installed.lock'), 'value' => is_file($this->root . '/storage/installed.lock') ? 'aktiv' : 'fehlt'],
+            ['label' => 'Private Ablage außerhalb Webroot', 'ok' => $privateOutsidePublic, 'value' => $privateOutsidePublic ? 'sicher getrennt' : 'prüfen'],
         ];
 
         View::render($this->root, 'admin/system-status', [

@@ -6,7 +6,8 @@ final class AdminCategoryController{
  public function show(Request $r,array $p):void{
   $q=$this->db->prepare('SELECT * FROM categories WHERE id=?');$q->execute([(int)$p['id']]);$c=$q->fetch();if(!$c)Response::abort(404);
   $f=$this->db->prepare('SELECT * FROM category_fields WHERE category_id=? ORDER BY sort_order,id');$f->execute([$c['id']]);
-  View::render($this->root,'admin/category',['pageTitle'=>'Kategorie '.$c['name'],'category'=>$c,'fields'=>$f->fetchAll()]);
+  $parents=$this->db->prepare('SELECT id,name FROM categories WHERE id<>? ORDER BY sort_order,name');$parents->execute([$c['id']]);
+  View::render($this->root,'admin/category',['pageTitle'=>'Kategorie '.$c['name'],'category'=>$c,'fields'=>$f->fetchAll(),'parents'=>$parents->fetchAll()]);
  }
  public function config(Request $r,array $p):void{
   $json=trim((string)$r->input('config_json'));$decoded=json_decode($json,true);if(!is_array($decoded)){Session::flash('error','Kategorie-Konfiguration muss gültiges JSON sein.');Response::redirect('/admin/kategorien/'.$p['id']);}
@@ -14,7 +15,7 @@ final class AdminCategoryController{
  }
  public function addField(Request $r,array $p):void{
   $type=(string)$r->input('field_type');if(!in_array($type,['text','number','select','multiselect','boolean','date'],true))Response::abort(422);
-  $key=preg_replace('/[^a-z0-9_]/','_',mb_strtolower(trim((string)$r->input('field_key'))));$label=trim((string)$r->input('label'));if(!$key||!$label){Session::flash('error','Feldschlüssel und Bezeichnung sind erforderlich.');Response::redirect('/admin/kategorien/'.$p['id']);}
+  $label=trim((string)$r->input('label'));$keySource=trim((string)$r->input('field_key'));if($keySource==='')$keySource=$label;$key=preg_replace('/[^a-z0-9_]/','_',mb_strtolower($keySource));if(!$key||!$label){Session::flash('error','Bitte eine Bezeichnung angeben.');Response::redirect('/admin/kategorien/'.$p['id']);}
   $options=null;if(in_array($type,['select','multiselect'],true)){$parts=array_values(array_filter(array_map('trim',preg_split('/\r?\n/',(string)$r->input('options')))));$options=json_encode($parts,JSON_UNESCAPED_UNICODE);}
   $this->db->prepare('INSERT INTO category_fields(category_id,field_key,label,field_type,options_json,is_required,is_active,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,1,?,NOW(),NOW())')->execute([(int)$p['id'],$key,$label,$type,$options,(int)!!$r->input('is_required'),(int)$r->input('sort_order',0)]);Session::flash('success','Kategorie-Feld angelegt.');Response::redirect('/admin/kategorien/'.$p['id']);
  }

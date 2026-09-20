@@ -1,0 +1,5 @@
+<main class="section"><div class="section-head"><div><span class="eyebrow">System</span><h1>Systemstatus</h1></div><div class="actions"><a class="btn ghost" href="/admin/system/update">Systemupdate</a><a class="btn" href="/admin">Dashboard</a></div></div>
+<div class="worklist"><?php foreach($checks as $check):?><div class="work-row"><div><b><?=App\Core\View::e($check['label'])?></b><span><?=App\Core\View::e($check['value'])?></span></div><strong><?=$check['ok']?'OK':'Prüfen'?></strong></div><?php endforeach;?></div>
+<section class="card"><h2>Ausstehende Migrationen</h2><?php if($pendingMigrations):?><ul><?php foreach($pendingMigrations as $m):?><li><?=App\Core\View::e(basename($m))?></li><?php endforeach;?></ul><?php else:?><p class="muted">Keine ausstehenden Migrationen.</p><?php endif;?></section>
+<section class="card"><h2>Letztes Cron-Ergebnis</h2><?php if($schedulerResult):?><pre class="json-preview"><?=App\Core\View::e(json_encode($schedulerResult,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))?></pre><?php else:?><p class="muted">Noch kein Cron-Ergebnis gespeichert.</p><?php endif;?></section>
+</main>

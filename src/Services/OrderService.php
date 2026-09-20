@@ -8,7 +8,7 @@ use DateTimeZone;
 
 final class OrderService
 {
-    public function __construct(private PDO $db) {}
+    public function __construct(private PDO $db, private ?string $root = null) {}
 
     public function accept(int $sellerId, int $offerId, array $optionIds = [], bool $rightsAccepted = false): int
     {
@@ -184,6 +184,7 @@ final class OrderService
             }
 
             $this->db->commit();
+            $this->sendOrderConfirmation($orderId);
             return $orderId;
         } catch (\Throwable $e) {
             if ($this->db->inTransaction()) {
@@ -321,6 +322,52 @@ final class OrderService
                 $this->db->rollBack();
             }
             throw $e;
+        }
+    }
+
+    private function sendOrderConfirmation(int $orderId): void
+    {
+        if ($this->root === null) {
+            return;
+        }
+
+        try {
+            $q = $this->db->prepare("SELECT o.*,s.first_name,s.last_name,s.email FROM orders o JOIN sellers s ON s.id=o.seller_id WHERE o.id=?");
+            $q->execute([$orderId]);
+            $order = $q->fetch();
+            if (!$order) {
+                return;
+            }
+
+            $componentsQ = $this->db->prepare("SELECT oc.*,c.name category_name FROM order_components oc JOIN categories c ON c.id=oc.category_id WHERE oc.order_id=? ORDER BY oc.sort_order,oc.id");
+            $componentsQ->execute([$orderId]);
+            $components = $componentsQ->fetchAll();
+
+            $optionsQ = $this->db->prepare("SELECT * FROM order_options WHERE order_id=? AND is_active=1 ORDER BY id");
+            $optionsQ->execute([$orderId]);
+            $options = $optionsQ->fetchAll();
+
+            $config = require $this->root . '/config/app.php';
+            $sent = (new Mailer($config))->sendOrderConfirmation(
+                (string) $order['email'],
+                trim((string) $order['first_name'] . ' ' . (string) $order['last_name']),
+                $order,
+                $components,
+                $options
+            );
+
+            $this->db->prepare("INSERT INTO system_events(seller_id,order_id,event_type,actor_type,payload_json,created_at) VALUES(?,?,'order_confirmation_email','system',?,NOW())")
+                ->execute([
+                    $order['seller_id'],
+                    $orderId,
+                    json_encode(['sent' => $sent, 'email' => $order['email']], JSON_UNESCAPED_UNICODE),
+                ]);
+        } catch (\Throwable $e) {
+            try {
+                $this->db->prepare("INSERT INTO system_events(order_id,event_type,actor_type,payload_json,created_at) VALUES(?,'order_confirmation_email_failed','system',?,NOW())")
+                    ->execute([$orderId, json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE)]);
+            } catch (\Throwable) {
+            }
         }
     }
 

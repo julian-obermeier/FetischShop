@@ -224,6 +224,7 @@ final class App
             $router->post('/admin/angebote/{id}/bearbeiten', [$admin, 'updateOffer'], [$csrf, $adminOnly]);
             $router->post('/admin/angebote/{id}/duplizieren', [$admin, 'duplicateOffer'], [$csrf, $adminOnly]);
             $router->post('/admin/angebote/{id}/vorlage', [$admin, 'saveOfferTemplate'], [$csrf, $adminOnly]);
+            $router->post('/admin/angebote/{id}/privat-erneut-freigeben', [$admin, 'reopenPrivateOffer'], [$csrf, $adminOnly]);
             $router->get('/admin/angebotsvorlagen', [$admin, 'offerTemplates'], [$adminOnly]);
             $router->post('/admin/angebotsvorlagen/{id}/verwenden', [$admin, 'useOfferTemplate'], [$csrf, $adminOnly]);
             $router->get('/admin/auftraege', [$adminOrders, 'index'], [$adminOnly]);

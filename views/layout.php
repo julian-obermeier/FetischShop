@@ -6,6 +6,8 @@ $pageTitle = $pageTitle ?? 'FetischShop';
 $isAdmin = (bool) Session::get('admin_id');
 $isSeller = (bool) Session::get('seller_id');
 $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$sellerUnread = (int) Session::get('seller_nav_unread', 0);
+$sellerUrgent = (int) Session::get('seller_nav_urgent', 0);
 $isSellerArea = !$isAdmin && $isSeller && (
     $currentPath === '/konto' || str_starts_with($currentPath, '/konto/')
     || $currentPath === '/angebote' || str_starts_with($currentPath, '/angebote/')
@@ -85,10 +87,10 @@ function sellerNavActive(string $currentPath, string $href): string {
 <nav class="seller-sidebar-nav">
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto')?>" href="/konto"><span>⌂</span>Übersicht</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/auftraege')?>" href="/konto/auftraege"><span>▥</span>Meine Aufträge</a>
-<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/fristen')?>" href="/konto/fristen"><span>◷</span>Fristen & Kalender</a>
+<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/fristen')?>" href="/konto/fristen"><span>◷</span><span class="seller-nav-text">Fristen & Kalender</span><?php if($sellerUrgent>0):?><em class="seller-nav-badge warn"><?=$sellerUrgent>99?'99+':$sellerUrgent?></em><?php endif;?></a>
 <a class="seller-nav-link<?=str_starts_with($currentPath,'/angebote')?' active':''?>" href="/angebote"><span>◆</span>Neue Angebote</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/wallet')?>" href="/konto/wallet"><span>€</span>Wallet & Auszahlung</a>
-<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/benachrichtigungen')?>" href="/konto/benachrichtigungen"><span>●</span>Benachrichtigungen</a>
+<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/benachrichtigungen')?>" href="/konto/benachrichtigungen"><span>●</span><span class="seller-nav-text">Benachrichtigungen</span><?php if($sellerUnread>0):?><em class="seller-nav-badge"><?=$sellerUnread>99?'99+':$sellerUnread?></em><?php endif;?></a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/profil')?>" href="/konto/profil"><span>♙</span>Mein Profil</a>
 </nav>
 <div class="seller-sidebar-foot"><form method="post" action="/logout"><?=App\Core\Csrf::field()?><button type="submit">Abmelden</button></form></div>
@@ -105,7 +107,7 @@ function sellerNavActive(string $currentPath, string $href): string {
 <nav class="seller-mobile-nav">
 <a class="<?=sellerNavActive($currentPath,'/konto')?>" href="/konto"><span>⌂</span><small>Start</small></a>
 <a class="<?=sellerNavActive($currentPath,'/konto/auftraege')?>" href="/konto/auftraege"><span>▥</span><small>Aufträge</small></a>
-<a class="<?=sellerNavActive($currentPath,'/konto/fristen')?>" href="/konto/fristen"><span>◷</span><small>Fristen</small></a>
+<a class="<?=sellerNavActive($currentPath,'/konto/fristen')?>" href="/konto/fristen"><span class="mobile-nav-icon">◷<?php if($sellerUrgent>0):?><em><?=$sellerUrgent>9?'9+':$sellerUrgent?></em><?php endif;?></span><small>Fristen</small></a>
 <a class="<?=sellerNavActive($currentPath,'/konto/wallet')?>" href="/konto/wallet"><span>€</span><small>Wallet</small></a>
 <a class="<?=sellerNavActive($currentPath,'/konto/profil')?>" href="/konto/profil"><span>♙</span><small>Profil</small></a>
 </nav>

@@ -25,6 +25,7 @@ final class OperationsController
         $this->append($items, $this->db->query("SELECT e.id source_id,e.order_id,'Nachweis' type,CONCAT('Nachweis #',e.id) title,e.created_at due_at,'pending' status FROM evidences e WHERE e.evidence_type<>'precheck' AND e.review_status='pending'")->fetchAll());
         $this->append($items, $this->db->query("SELECT v.id source_id,v.order_id,'Verstoß' type,v.description title,v.created_at due_at,v.status FROM violations v WHERE v.status IN('open','reviewed')")->fetchAll());
         $this->append($items, $this->db->query("SELECT d.id source_id,d.order_id,'Beschädigung' type,d.reason title,d.created_at due_at,d.status FROM damage_cases d WHERE d.status IN('reported','evidence_requested','under_review')")->fetchAll());
+        $this->append($items, $this->db->query("SELECT dc.id source_id,oc.order_id,'Digitale Abgabe' type,CONCAT('Digitale Abgabe · ',oc.title) title,dc.updated_at due_at,dc.status FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE dc.status='submitted'")->fetchAll());
         $this->append($items, $this->db->query("SELECT rr.id source_id,oc.order_id,'Revision' type,CONCAT('Revisionsrunde ',rr.round_no) title,rr.deadline due_at,rr.status FROM revision_rounds rr JOIN digital_components dc ON dc.id=rr.digital_component_id JOIN order_components oc ON oc.id=dc.order_component_id WHERE rr.status IN('open','submitted')")->fetchAll());
         $this->append($items, $this->db->query("SELECT s.id source_id,s.order_id,'Wareneingang' type,CONCAT('Sendung ',COALESCE(s.tracking_number,'ohne Tracking')) title,s.shipped_at due_at,s.status FROM shipments s WHERE s.status='shipped'")->fetchAll());
         $this->append($items, $this->db->query("SELECT o.id source_id,o.id order_id,'Abschlussprüfung' type,CONCAT('Auftrag #',o.order_number) title,o.updated_at due_at,o.status FROM orders o LEFT JOIN final_reviews fr ON fr.order_id=o.id WHERE o.phase='review' AND fr.id IS NULL")->fetchAll());
@@ -47,10 +48,13 @@ final class OperationsController
     {
         $items = [];
         $this->append($items, $this->db->query("SELECT od.order_id,ew.id source_id,'Nachweisfenster' type,CONCAT(ew.name,' – Nachweis') title,ew.ends_at due_at,ew.grace_ends_at grace_at,ew.status FROM evidence_windows ew JOIN order_days od ON od.id=ew.order_day_id WHERE ew.status='open'")->fetchAll());
+        $this->append($items, $this->db->query("SELECT e.order_id,e.id source_id,'Nachaufnahme' type,'Angeforderte Nachaufnahme' title,e.retake_deadline due_at,e.retake_grace_ends_at grace_at,e.review_status status FROM evidences e WHERE e.review_status='rejected' AND e.resolved_by_evidence_id IS NULL AND e.retake_deadline IS NOT NULL")->fetchAll());
+        $this->append($items, $this->db->query("SELECT oc.order_id,dc.id source_id,'Digitale Abgabe' type,CONCAT('Digitale Abgabe · ',oc.title) title,dc.deadline due_at,DATE_ADD(dc.deadline,INTERVAL 1 HOUR) grace_at,dc.status FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE dc.deadline IS NOT NULL AND dc.status IN('open','draft','running')")->fetchAll());
         $this->append($items, $this->db->query("SELECT t.order_id,te.id source_id,'Zusatzaufgabe' type,t.title,te.due_at,te.grace_ends_at grace_at,te.review_status status FROM task_executions te JOIN tasks t ON t.id=te.task_id WHERE te.review_status IN('open','pending','overdue')")->fetchAll());
         $this->append($items, $this->db->query("SELECT sr.order_id,sr.id source_id,'Spontanfoto' type,sr.motif title,sr.deadline due_at,sr.grace_ends_at grace_at,sr.status FROM spontaneous_requests sr WHERE sr.status NOT IN('uploaded','completed','cancelled')")->fetchAll());
         $this->append($items, $this->db->query("SELECT dc.order_id,dr.id source_id,'Beschädigungsnachforderung' type,dr.instructions title,dr.deadline due_at,dr.grace_ends_at grace_at,dr.status FROM damage_evidence_requests dr JOIN damage_cases dc ON dc.id=dr.damage_case_id WHERE dr.status='requested'")->fetchAll());
         $this->append($items, $this->db->query("SELECT oc.order_id,rr.id source_id,'Revision' type,CONCAT('Revision ',rr.round_no) title,rr.deadline due_at,rr.grace_ends_at grace_at,rr.status FROM revision_rounds rr JOIN digital_components dc ON dc.id=rr.digital_component_id JOIN order_components oc ON oc.id=dc.order_component_id WHERE rr.status IN('open','submitted')")->fetchAll());
+        $this->append($items, $this->db->query("SELECT sw.order_id,ss.id source_id,'Versandschritt' type,ss.title,ss.deadline due_at,DATE_ADD(ss.deadline,INTERVAL 1 HOUR) grace_at,ss.status FROM shipping_steps ss JOIN shipping_workflows sw ON sw.id=ss.shipping_workflow_id WHERE sw.status='active' AND ss.status IN('pending','overdue') AND ss.deadline IS NOT NULL")->fetchAll());
         $this->append($items, $this->db->query("SELECT NULL order_id,o.id source_id,'Privatangebot' type,o.title,o.acceptance_deadline due_at,o.acceptance_deadline grace_at,o.private_offer_status status,CONCAT('/admin/angebote/',o.id,'/bearbeiten') url FROM offers o WHERE o.is_private=1 AND o.private_offer_status='pending' AND o.acceptance_deadline IS NOT NULL")->fetchAll());
 
         $now = time();
@@ -115,6 +119,22 @@ final class OperationsController
         $q = $this->db->prepare("SELECT od.order_id,'Nachweisfenster' type,CONCAT('#',o.order_number,' · ',ew.name) title,ew.starts_at,ew.ends_at,CONCAT('/admin/auftraege/',od.order_id) url FROM evidence_windows ew JOIN order_days od ON od.id=ew.order_day_id JOIN orders o ON o.id=od.order_id WHERE ew.starts_at>=? AND ew.starts_at<?");
         $q->execute($params);
         $this->append($events, $q->fetchAll());
+        $q = $this->db->prepare("SELECT e.order_id,'Nachaufnahme' type,CONCAT('#',o.order_number,' · Nachaufnahme') title,e.retake_deadline starts_at,e.retake_grace_ends_at ends_at,CONCAT('/admin/auftraege/',e.order_id) url FROM evidences e JOIN orders o ON o.id=e.order_id WHERE e.review_status='rejected' AND e.resolved_by_evidence_id IS NULL AND e.retake_deadline IS NOT NULL AND e.retake_deadline>=? AND e.retake_deadline<?");
+        $q->execute($params);
+        $this->append($events, $q->fetchAll());
+
+        $q = $this->db->prepare("SELECT sr.order_id,'Spontanfoto' type,CONCAT('#',o.order_number,' · ',sr.motif) title,sr.deadline starts_at,sr.grace_ends_at ends_at,CONCAT('/admin/auftraege/',sr.order_id) url FROM spontaneous_requests sr JOIN orders o ON o.id=sr.order_id WHERE sr.deadline>=? AND sr.deadline<?");
+        $q->execute($params);
+        $this->append($events, $q->fetchAll());
+
+        $q = $this->db->prepare("SELECT dc.order_id,'Beschädigungsnachforderung' type,CONCAT('#',o.order_number,' · Schadensnachweis') title,dr.deadline starts_at,dr.grace_ends_at ends_at,CONCAT('/admin/auftraege/',dc.order_id) url FROM damage_evidence_requests dr JOIN damage_cases dc ON dc.id=dr.damage_case_id JOIN orders o ON o.id=dc.order_id WHERE dr.deadline>=? AND dr.deadline<?");
+        $q->execute($params);
+        $this->append($events, $q->fetchAll());
+
+        $q = $this->db->prepare("SELECT oc.order_id,'Digitale Abgabe' type,CONCAT('#',o.order_number,' · Digitale Abgabe · ',oc.title) title,dc.deadline starts_at,DATE_ADD(dc.deadline,INTERVAL 1 HOUR) ends_at,CONCAT('/admin/auftraege/',oc.order_id) url FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id JOIN orders o ON o.id=oc.order_id WHERE dc.deadline IS NOT NULL AND dc.status IN('open','draft','running') AND dc.deadline>=? AND dc.deadline<?");
+        $q->execute($params);
+        $this->append($events, $q->fetchAll());
+
 
         $q = $this->db->prepare("SELECT t.order_id,'Aufgabe' type,CONCAT('#',o.order_number,' · ',t.title) title,te.due_at starts_at,NULL ends_at,CONCAT('/admin/auftraege/',t.order_id) url FROM task_executions te JOIN tasks t ON t.id=te.task_id JOIN orders o ON o.id=t.order_id WHERE te.due_at>=? AND te.due_at<?");
         $q->execute($params);

@@ -324,7 +324,8 @@ final class OrderService
                             [$eh, $em] = array_map('intval', explode(':', (string) $window['end']));
                             $from = $date->setTime($sh, $sm);
                             $to = $date->setTime($eh, $em);
-                            $this->db->prepare("INSERT INTO evidence_windows(order_day_id,name,starts_at,ends_at,grace_ends_at,required_count,config_json,status,created_at) VALUES(?,?,?,?,?,?,?,'open',NOW())")
+                            $cameraRequired = array_key_exists('camera_required', $window) ? !empty($window['camera_required']) : true;
+                            $this->db->prepare("INSERT INTO evidence_windows(order_day_id,name,starts_at,ends_at,grace_ends_at,required_count,camera_required,config_json,status,created_at) VALUES(?,?,?,?,?,?,?,?, 'open',NOW())")
                                 ->execute([
                                     $dayId,
                                     (string) $window['name'],
@@ -332,6 +333,7 @@ final class OrderService
                                     $to->format('Y-m-d H:i:s'),
                                     $to->modify('+1 hour')->format('Y-m-d H:i:s'),
                                     (int) ($window['required_count'] ?? 1),
+                                    $cameraRequired ? 1 : 0,
                                     json_encode($window, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                                 ]);
                         }
@@ -573,9 +575,10 @@ final class OrderService
             $label = trim((string) ($requirement['label'] ?? ('Pflichtaufnahme ' . ($idx + 1))));
             $description = trim((string) ($requirement['description'] ?? ''));
             $count = max(1, (int) ($requirement['required_count'] ?? 1));
+            $cameraRequired = array_key_exists('camera_required', $requirement) ? !empty($requirement['camera_required']) : true;
 
-            $this->db->prepare('INSERT INTO precheck_requirements(order_id,order_run_id,order_component_id,requirement_key,label,description,required_count,sort_order,created_at) VALUES(?,?,?,?,?,?,?,?,NOW())')
-                ->execute([$orderId, $runId, $componentId, $key, $label, $description ?: null, $count, $idx]);
+            $this->db->prepare('INSERT INTO precheck_requirements(order_id,order_run_id,order_component_id,requirement_key,label,description,required_count,camera_required,sort_order,created_at) VALUES(?,?,?,?,?,?,?,?,?,NOW())')
+                ->execute([$orderId, $runId, $componentId, $key, $label, $description ?: null, $count, $cameraRequired ? 1 : 0, $idx]);
         }
     }
 

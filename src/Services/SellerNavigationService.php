@@ -23,6 +23,26 @@ final class SellerNavigationService
 
             UNION ALL
 
+            SELECT COUNT(*) FROM evidences e
+            JOIN orders o ON o.id=e.order_id
+            WHERE o.seller_id=? AND e.review_status='rejected'
+              AND e.resolved_by_evidence_id IS NULL
+              AND e.retake_deadline IS NOT NULL
+              AND e.retake_grace_ends_at>=NOW()
+              AND e.retake_deadline<=DATE_ADD(NOW(),INTERVAL 24 HOUR)
+
+            UNION ALL
+
+            SELECT COUNT(*) FROM digital_components dc
+            JOIN order_components oc ON oc.id=dc.order_component_id
+            JOIN orders o ON o.id=oc.order_id
+            WHERE o.seller_id=? AND dc.status IN('open','draft','running')
+              AND dc.deadline IS NOT NULL
+              AND DATE_ADD(dc.deadline,INTERVAL 1 HOUR)>=NOW()
+              AND dc.deadline<=DATE_ADD(NOW(),INTERVAL 24 HOUR)
+
+            UNION ALL
+
             SELECT COUNT(*) FROM task_executions te
             JOIN tasks t ON t.id=te.task_id
             JOIN orders o ON o.id=t.order_id
@@ -71,7 +91,7 @@ final class SellerNavigationService
         ) urgent";
 
         $urgentQ=$this->db->prepare($urgentSql);
-        $urgentQ->execute(array_fill(0,6,$sellerId));
+        $urgentQ->execute(array_fill(0,8,$sellerId));
 
         return [
             'unread'=>$unread,

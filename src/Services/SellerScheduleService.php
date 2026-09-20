@@ -62,7 +62,7 @@ final class SellerScheduleService
         $items = array_merge($items,$q->fetchAll());
 
         $q = $this->db->prepare("SELECT o.id order_id,o.order_number,ss.id source_id,'shipping' event_type,
-            CONCAT('Versand: ',ss.title) title,ss.created_at starts_at,ss.deadline due_at,
+            CONCAT('Versand: ',ss.title) title,COALESCE(sw.started_at,ss.deadline) starts_at,ss.deadline due_at,
             CASE WHEN ss.deadline IS NULL THEN NULL ELSE DATE_ADD(ss.deadline,INTERVAL 1 HOUR) END grace_at,
             ss.status source_status
             FROM shipping_steps ss

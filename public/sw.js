@@ -1,4 +1,35 @@
-const CACHE='fetischshop-v1',STATIC=['/','/assets/app.css','/assets/app.js','/assets/app-icon.svg'];
-self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(STATIC)).catch(()=>{})));
-self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
-self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.origin!==location.origin)return;if(/\/(media|evidence)\//.test(u.pathname))return;e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)));});
+const CACHE='fetischshop-v2';
+const STATIC=['/offline.html','/assets/app.css','/assets/app.js','/assets/app-icon.svg'];
+
+self.addEventListener('install',event=>{
+  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(STATIC)).then(()=>self.skipWaiting()).catch(()=>{}));
+});
+
+self.addEventListener('activate',event=>{
+  event.waitUntil(
+    caches.keys()
+      .then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key))))
+      .then(()=>self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch',event=>{
+  if(event.request.method!=='GET')return;
+  const url=new URL(event.request.url);
+  if(url.origin!==self.location.origin)return;
+
+  if(
+    url.pathname.startsWith('/media/')
+    || url.pathname.startsWith('/cron/')
+    || url.pathname.startsWith('/admin/')
+  ) return;
+
+  if(event.request.mode==='navigate'){
+    event.respondWith(fetch(event.request).catch(()=>caches.match('/offline.html')));
+    return;
+  }
+
+  if(url.pathname.startsWith('/assets/')){
+    event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request)));
+  }
+});

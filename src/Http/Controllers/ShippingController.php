@@ -8,6 +8,8 @@ use App\Core\Session;
 use App\Core\View;
 use App\Services\PrivateStorage;
 use App\Services\OrderLifecycleService;
+use App\Services\NotificationService;
+use App\Services\Mailer;
 use PDO;
 use RuntimeException;
 
@@ -128,6 +130,7 @@ final class ShippingController
             $this->db->prepare("UPDATE orders SET status='shipping',phase='shipping',updated_at=NOW() WHERE id=?")->execute([$orderId]);
             $this->systemChat($orderId, 'Die Durchführung ist abgeschlossen. Der Versandworkflow wurde freigeschaltet.');
             $this->db->commit();
+            $this->notifySeller($orderId,'shipping','Versand freigeschaltet','Die Durchführung ist abgeschlossen. Bitte arbeite jetzt die Versandschritte im Auftrag ab.');
             Session::flash('success', 'Versandworkflow wurde gestartet.');
         } catch (\Throwable $e) {
             if ($this->db->inTransaction()) {
@@ -268,6 +271,7 @@ final class ShippingController
 
             $this->systemChat($orderId, $message);
             $this->db->commit();
+            $this->notifySeller($orderId,'shipping','Sendung eingegangen','Der Wareneingang wurde bestätigt. Der Auftrag befindet sich nun in der weiteren Prüfung.');
             Session::flash('success', 'Wareneingang bestätigt.');
         } catch (\Throwable $e) {
             if ($this->db->inTransaction()) {
@@ -380,6 +384,10 @@ final class ShippingController
             $message = trim((string) $r->input('seller_message'));
             $this->systemChat($orderId, 'Abschlussprüfung: ' . $decision . ($message !== '' ? ' – ' . $message : ''));
             $this->db->commit();
+            $title=$decision==='accepted'?'Auftrag vollständig akzeptiert':($decision==='partially_accepted'?'Auftrag teilweise akzeptiert':'Auftrag abgelehnt');
+            $notify=$decision==='rejected'?'Der Auftrag wurde abgelehnt.':('Für deinen Auftrag wurden '.number_format($approved,2,',','.').' € freigegeben.');
+            if($message!=='')$notify.=' '.$message;
+            $this->notifySeller($orderId,'final_review',$title,$notify);
             Session::flash('success', 'Abschlussprüfung gespeichert und Wallet aktualisiert.');
         } catch (\Throwable $e) {
             if ($this->db->inTransaction()) {
@@ -389,6 +397,17 @@ final class ShippingController
         }
 
         Response::redirect('/admin/auftraege/' . $orderId);
+    }
+
+    private function notifySeller(int $orderId,string $type,string $title,string $message):void
+    {
+        try {
+            $q=$this->db->prepare('SELECT seller_id FROM orders WHERE id=?');$q->execute([$orderId]);$sellerId=(int)$q->fetchColumn();
+            if(!$sellerId)return;
+            $config=require $this->root.'/config/app.php';
+            (new NotificationService($this->db,new Mailer($config)))->seller($sellerId,$type,$title,$message,'/konto/auftraege/'.$orderId,true);
+        } catch (\Throwable) {
+        }
     }
 
     private function systemChat(int $orderId, string $message): void

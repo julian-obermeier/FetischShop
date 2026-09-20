@@ -121,7 +121,7 @@ jobs:
           }
 
           $requiredColumns = [
-              ['shipping_steps','created_at'],
+              ['shipping_steps','deadline'],
               ['evidence_windows','camera_required'],
               ['precheck_requirements','camera_required'],
               ['order_acceptance_consents','adult_confirmed'],

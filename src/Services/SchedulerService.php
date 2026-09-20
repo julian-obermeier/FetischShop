@@ -75,7 +75,7 @@ final class SchedulerService
 
     private function evidenceWindows(): int
     {
-        $q = $this->db->query("SELECT ew.id,ew.required_count,od.order_id,o.seller_id FROM evidence_windows ew JOIN order_days od ON od.id=ew.order_day_id JOIN orders o ON o.id=od.order_id WHERE ew.grace_ends_at<NOW() AND ew.status='open' AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE ew.grace_ends_at BETWEEN po.starts_at AND po.ends_at)");
+        $q = $this->db->query("SELECT ew.id,ew.required_count,od.order_id,od.order_component_id,o.seller_id FROM evidence_windows ew JOIN order_days od ON od.id=ew.order_day_id JOIN orders o ON o.id=od.order_id WHERE ew.grace_ends_at<NOW() AND ew.status='open' AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE ew.grace_ends_at BETWEEN po.starts_at AND po.ends_at)");
         $made = 0;
 
         foreach ($q->fetchAll() as $w) {
@@ -85,7 +85,7 @@ final class SchedulerService
 
             for ($slot = 1; $slot <= $missing; $slot++) {
                 $sourceId = (int) $w['id'] * 1000 + $slot;
-                if ($this->ensureViolation((int) $w['order_id'], 'missing_evidence', 'evidence_window', $sourceId, 'Pflichtnachweis im vorgesehenen Zeitfenster einschließlich Nachfrist fehlt.', true)) {
+                if ($this->ensureViolation((int) $w['order_id'], 'missing_evidence', 'evidence_window', $sourceId, 'Pflichtnachweis im vorgesehenen Zeitfenster einschließlich Nachfrist fehlt.', true, $w['order_component_id'] ? (int) $w['order_component_id'] : null)) {
                     $made++;
                 }
             }
@@ -98,11 +98,11 @@ final class SchedulerService
 
     private function evidenceRetakes(): int
     {
-        $q = $this->db->query("SELECT e.id,e.order_id FROM evidences e WHERE e.review_status='rejected' AND e.retake_grace_ends_at IS NOT NULL AND e.retake_grace_ends_at<NOW() AND e.resolved_by_evidence_id IS NULL AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE e.retake_grace_ends_at BETWEEN po.starts_at AND po.ends_at)");
+        $q = $this->db->query("SELECT e.id,e.order_id,e.order_component_id FROM evidences e WHERE e.review_status='rejected' AND e.retake_grace_ends_at IS NOT NULL AND e.retake_grace_ends_at<NOW() AND e.resolved_by_evidence_id IS NULL AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE e.retake_grace_ends_at BETWEEN po.starts_at AND po.ends_at)");
         $made = 0;
 
         foreach ($q->fetchAll() as $row) {
-            if ($this->ensureViolation((int) $row['order_id'], 'evidence_retake_missed', 'evidence_retake', (int) $row['id'], 'Angeforderte Nachaufnahme wurde nicht innerhalb der Nachforderungsfrist einschließlich Nachfrist eingereicht.', true)) {
+            if ($this->ensureViolation((int) $row['order_id'], 'evidence_retake_missed', 'evidence_retake', (int) $row['id'], 'Angeforderte Nachaufnahme wurde nicht innerhalb der Nachforderungsfrist einschließlich Nachfrist eingereicht.', true, $row['order_component_id'] ? (int) $row['order_component_id'] : null)) {
                 $made++;
             }
         }
@@ -112,11 +112,11 @@ final class SchedulerService
 
     private function tasks(): int
     {
-        $q = $this->db->query("SELECT te.id,t.order_id FROM task_executions te JOIN tasks t ON t.id=te.task_id WHERE te.grace_ends_at<NOW() AND te.submitted_at IS NULL AND te.review_status='open' AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE te.grace_ends_at BETWEEN po.starts_at AND po.ends_at)");
+        $q = $this->db->query("SELECT te.id,t.order_id,t.order_component_id FROM task_executions te JOIN tasks t ON t.id=te.task_id WHERE te.grace_ends_at<NOW() AND te.submitted_at IS NULL AND te.review_status='open' AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE te.grace_ends_at BETWEEN po.starts_at AND po.ends_at)");
         $made = 0;
 
         foreach ($q->fetchAll() as $x) {
-            if ($this->ensureViolation((int) $x['order_id'], 'task_not_completed', 'task_execution', (int) $x['id'], 'Zusatzaufgabe wurde innerhalb der Frist und Nachfrist nicht vollständig eingereicht.', true)) {
+            if ($this->ensureViolation((int) $x['order_id'], 'task_not_completed', 'task_execution', (int) $x['id'], 'Zusatzaufgabe wurde innerhalb der Frist und Nachfrist nicht vollständig eingereicht.', true, $x['order_component_id'] ? (int) $x['order_component_id'] : null)) {
                 $made++;
             }
             $this->db->prepare("UPDATE task_executions SET review_status='overdue' WHERE id=?")->execute([$x['id']]);
@@ -150,11 +150,11 @@ final class SchedulerService
 
     private function damageRequests(): int
     {
-        $q = $this->db->query("SELECT dr.id,dr.damage_case_id,dc.order_id FROM damage_evidence_requests dr JOIN damage_cases dc ON dc.id=dr.damage_case_id WHERE dr.grace_ends_at<NOW() AND dr.status='requested' AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE dr.grace_ends_at BETWEEN po.starts_at AND po.ends_at)");
+        $q = $this->db->query("SELECT dr.id,dr.damage_case_id,dc.order_id,dc.order_component_id FROM damage_evidence_requests dr JOIN damage_cases dc ON dc.id=dr.damage_case_id WHERE dr.grace_ends_at<NOW() AND dr.status='requested' AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE dr.grace_ends_at BETWEEN po.starts_at AND po.ends_at)");
         $made = 0;
 
         foreach ($q->fetchAll() as $row) {
-            if ($this->ensureViolation((int) $row['order_id'], 'damage_followup_missing', 'damage_case', (int) $row['damage_case_id'], 'Nachforderung im Beschädigungsvorgang wurde nicht rechtzeitig erfüllt.', true)) {
+            if ($this->ensureViolation((int) $row['order_id'], 'damage_followup_missing', 'damage_case', (int) $row['damage_case_id'], 'Nachforderung im Beschädigungsvorgang wurde nicht rechtzeitig erfüllt.', true, $row['order_component_id'] ? (int) $row['order_component_id'] : null)) {
                 $made++;
             }
             $this->db->prepare("UPDATE damage_evidence_requests SET status='overdue' WHERE id=?")->execute([$row['id']]);
@@ -165,12 +165,12 @@ final class SchedulerService
 
     private function revisions(): int
     {
-        $q = $this->db->query("SELECT rr.id,oc.order_id FROM revision_rounds rr JOIN digital_components dc ON dc.id=rr.digital_component_id JOIN order_components oc ON oc.id=dc.order_component_id WHERE rr.grace_ends_at<NOW() AND rr.status='open' AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE rr.grace_ends_at BETWEEN po.starts_at AND po.ends_at)");
+        $q = $this->db->query("SELECT rr.id,oc.order_id,oc.id order_component_id FROM revision_rounds rr JOIN digital_components dc ON dc.id=rr.digital_component_id JOIN order_components oc ON oc.id=dc.order_component_id WHERE rr.grace_ends_at<NOW() AND rr.status='open' AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE rr.grace_ends_at BETWEEN po.starts_at AND po.ends_at)");
         $made = 0;
 
         foreach ($q->fetchAll() as $row) {
             $extension = $this->digitalViolationExtends((int) $row['order_id']);
-            if ($this->ensureViolation((int) $row['order_id'], 'digital_revision_missed', 'revision_round', (int) $row['id'], 'Digitale Revision wurde nicht innerhalb der Frist einschließlich Nachfrist eingereicht.', $extension)) {
+            if ($this->ensureViolation((int) $row['order_id'], 'digital_revision_missed', 'revision_round', (int) $row['id'], 'Digitale Revision wurde nicht innerhalb der Frist einschließlich Nachfrist eingereicht.', $extension, (int) $row['order_component_id'])) {
                 $made++;
             }
             $this->db->prepare("UPDATE revision_rounds SET status='overdue' WHERE id=?")->execute([$row['id']]);
@@ -181,11 +181,11 @@ final class SchedulerService
 
     private function shipping(): int
     {
-        $q = $this->db->query("SELECT ss.id,sw.order_id FROM shipping_steps ss JOIN shipping_workflows sw ON sw.id=ss.shipping_workflow_id WHERE ss.is_required=1 AND ss.status='pending' AND ss.deadline IS NOT NULL AND DATE_ADD(ss.deadline,INTERVAL 1 HOUR)<NOW() AND sw.status='active'");
+        $q = $this->db->query("SELECT ss.id,sw.order_id,sw.order_component_id FROM shipping_steps ss JOIN shipping_workflows sw ON sw.id=ss.shipping_workflow_id WHERE ss.is_required=1 AND ss.status='pending' AND ss.deadline IS NOT NULL AND DATE_ADD(ss.deadline,INTERVAL 1 HOUR)<NOW() AND sw.status='active'");
         $made = 0;
 
         foreach ($q->fetchAll() as $row) {
-            if ($this->ensureViolation((int) $row['order_id'], 'shipping_requirement_missed', 'shipping_step', (int) $row['id'], 'Pflichtschritt im Versandworkflow wurde nicht innerhalb der Frist einschließlich Nachfrist erfüllt.', true)) {
+            if ($this->ensureViolation((int) $row['order_id'], 'shipping_requirement_missed', 'shipping_step', (int) $row['id'], 'Pflichtschritt im Versandworkflow wurde nicht innerhalb der Frist einschließlich Nachfrist erfüllt.', true, $row['order_component_id'] ? (int) $row['order_component_id'] : null)) {
                 $made++;
             }
             $this->db->prepare("UPDATE shipping_steps SET status='overdue' WHERE id=?")->execute([$row['id']]);
@@ -273,7 +273,7 @@ final class SchedulerService
         return $count;
     }
 
-    private function ensureViolation(int $orderId, string $type, string $sourceType, int $sourceId, string $description, bool $provisionalExtension): bool
+    private function ensureViolation(int $orderId, string $type, string $sourceType, int $sourceId, string $description, bool $provisionalExtension, ?int $orderComponentId = null): bool
     {
         $q = $this->db->prepare('SELECT id FROM violations WHERE order_id=? AND violation_type=? AND source_type=? AND source_id=?');
         $q->execute([$orderId, $type, $sourceType, $sourceId]);
@@ -283,13 +283,13 @@ final class SchedulerService
 
         $this->db->beginTransaction();
         try {
-            $i = $this->db->prepare("INSERT INTO violations(order_id,violation_type,source_type,source_id,description,status,provisional_extension,created_at) VALUES(?,?,?,?,?,'open',?,NOW())");
-            $i->execute([$orderId, $type, $sourceType, $sourceId, $description, (int) $provisionalExtension]);
+            $i = $this->db->prepare("INSERT INTO violations(order_id,order_component_id,violation_type,source_type,source_id,description,status,provisional_extension,created_at) VALUES(?,?,?,?,?,?,'open',?,NOW())");
+            $i->execute([$orderId, $orderComponentId, $type, $sourceType, $sourceId, $description, (int) $provisionalExtension]);
             $violationId = (int) $this->db->lastInsertId();
 
             if ($provisionalExtension) {
-                $this->db->prepare("INSERT INTO extension_days(order_id,violation_id,source_type,source_id,reason,is_provisional,is_paid,created_at) VALUES(?,?,'violation',?,?,1,0,NOW())")
-                    ->execute([$orderId, $violationId, $sourceId, $description]);
+                $this->db->prepare("INSERT INTO extension_days(order_id,order_component_id,violation_id,source_type,source_id,reason,is_provisional,is_paid,created_at) VALUES(?,?,?,'violation',?,?,1,0,NOW())")
+                    ->execute([$orderId, $orderComponentId, $violationId, $sourceId, $description]);
             }
 
             $this->db->commit();

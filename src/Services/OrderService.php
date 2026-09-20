@@ -25,6 +25,9 @@ final class OrderService
             if ((int) $offer['is_private'] === 1 && (int) $offer['private_seller_id'] !== $sellerId) {
                 throw new RuntimeException('Dieses Angebot ist nicht für dein Konto bestimmt.');
             }
+            if ((int) $offer['is_private'] === 1 && (string)($offer['private_offer_status'] ?? 'pending') !== 'pending') {
+                throw new RuntimeException('Dieses Privatangebot ist nicht mehr annehmbar.');
+            }
             if ($offer['acceptance_deadline'] && strtotime($offer['acceptance_deadline']) < time()) {
                 throw new RuntimeException('Die Annahmefrist ist abgelaufen.');
             }

@@ -1,6 +1,6 @@
 <?php
 namespace App\Http\Controllers;
-use App\Core\Auth;use App\Core\Request;use App\Core\Response;use App\Core\Session;use App\Core\View;use App\Services\OfferFormService;use PDO;
+use App\Core\Auth;use App\Core\Request;use App\Core\Response;use App\Core\Session;use App\Core\View;use App\Services\OfferFormService;use App\Services\NotificationService;use App\Services\Mailer;use PDO;
 final class AdminController{
  public function __construct(private string $root,private PDO $db,private Auth $auth){}
  public function dashboard():void{
@@ -39,15 +39,26 @@ final class AdminController{
  public function offers():void{$rows=$this->db->query("SELECT o.*,c.name category_name,ov.version_no,ov.compensation,s.first_name seller_first_name,s.last_name seller_last_name,s.email seller_email FROM offers o JOIN categories c ON c.id=o.category_id LEFT JOIN offer_versions ov ON ov.id=o.current_version_id LEFT JOIN sellers s ON s.id=o.seller_id ORDER BY o.updated_at DESC")->fetchAll();View::render($this->root,'admin/offers',['pageTitle'=>'Angebote','offers'=>$rows]);}
  public function offerCreateForm():void{$cats=$this->db->query("SELECT id,name,is_digital FROM categories WHERE is_active=1 ORDER BY sort_order,name")->fetchAll();$tasks=$this->db->query("SELECT id,title FROM task_templates WHERE is_active=1 ORDER BY title")->fetchAll();$sellers=$this->db->query("SELECT id,first_name,last_name,email FROM sellers WHERE deleted_at IS NULL ORDER BY last_name,first_name")->fetchAll();View::render($this->root,'admin/offer-form',['pageTitle'=>'Angebot anlegen','offer'=>null,'version'=>null,'categories'=>$cats,'options'=>[],'components'=>[],'offerTasks'=>[],'taskTemplates'=>$tasks,'sellers'=>$sellers]);}
  public function createOffer(Request $r):void{
+  $title=trim((string)$r->input('title'));$category=(int)$r->input('category_id');$private=(int)!!$r->input('is_private');$seller=$private?(int)$r->input('seller_id'):null;$status=(string)$r->input('status','draft');
+  if($title==='')throw new \RuntimeException('Bitte einen Angebotstitel angeben.');
+  if($private&&(!$seller||$seller<1))throw new \RuntimeException('Für ein Privatangebot muss eine Verkäuferin ausgewählt werden.');
+  $deadline=$r->input('acceptance_deadline')?:null;if($private&&$deadline!==null&&strtotime((string)$deadline)<=time())throw new \RuntimeException('Die Annahmefrist eines neuen Privatangebots muss in der Zukunft liegen.');
   $this->db->beginTransaction();try{
-   $title=trim((string)$r->input('title'));$category=(int)$r->input('category_id');$private=(int)!!$r->input('is_private');$seller=$private?(int)$r->input('seller_id'):null;
-   $q=$this->db->prepare("INSERT INTO offers(category_id,seller_id,title,status,is_private,acceptance_deadline,private_offer_status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,NOW(),NOW())");$q->execute([$category,$seller,$title,(string)$r->input('status','draft'),$private,$r->input('acceptance_deadline')?:null,$private?'pending':null]);$offerId=(int)$this->db->lastInsertId();
-   $v=$this->insertOfferVersion($offerId,1,$r);$this->db->prepare('UPDATE offers SET current_version_id=? WHERE id=?')->execute([$v,$offerId]);$this->db->commit();Session::flash('success','Angebot wurde angelegt.');Response::redirect('/admin/angebote');
+   $q=$this->db->prepare("INSERT INTO offers(category_id,seller_id,title,status,is_private,acceptance_deadline,private_offer_status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,NOW(),NOW())");$q->execute([$category,$seller,$title,$status,$private,$deadline,$private?'pending':null]);$offerId=(int)$this->db->lastInsertId();
+   $v=$this->insertOfferVersion($offerId,1,$r);$this->db->prepare('UPDATE offers SET current_version_id=? WHERE id=?')->execute([$v,$offerId]);$this->db->commit();
+   if($private&&$status==='active')$this->notifyPrivateOffer($seller,$offerId,$title,$deadline,'new');
+   Session::flash('success','Angebot wurde angelegt.');Response::redirect('/admin/angebote');
   }catch(\Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
  }
  public function offerEditForm(Request $r,array $p):void{$id=(int)$p['id'];$q=$this->db->prepare('SELECT * FROM offers WHERE id=?');$q->execute([$id]);$o=$q->fetch();if(!$o)Response::abort(404);$v=$this->db->prepare('SELECT * FROM offer_versions WHERE id=?');$v->execute([$o['current_version_id']]);$version=$v->fetch();$cats=$this->db->query("SELECT id,name,is_digital FROM categories ORDER BY sort_order,name")->fetchAll();$tasks=$this->db->query("SELECT id,title FROM task_templates WHERE is_active=1 ORDER BY title")->fetchAll();$sellers=$this->db->query("SELECT id,first_name,last_name,email FROM sellers WHERE deleted_at IS NULL ORDER BY last_name,first_name")->fetchAll();$op=$this->db->prepare('SELECT name,description,price,requirements_json,sort_order FROM offer_options WHERE offer_version_id=? ORDER BY sort_order,id');$op->execute([$o['current_version_id']]);$co=$this->db->prepare('SELECT category_id,component_type,title,compensation,fulfillment_model,duration_value,duration_unit,config_json,sort_order FROM offer_components WHERE offer_version_id=? ORDER BY sort_order,id');$co->execute([$o['current_version_id']]);$ta=$this->db->prepare('SELECT task_template_id,title,config_json,sort_order FROM offer_tasks WHERE offer_version_id=? ORDER BY sort_order,id');$ta->execute([$o['current_version_id']]);View::render($this->root,'admin/offer-form',['pageTitle'=>'Angebot bearbeiten','offer'=>$o,'version'=>$version,'categories'=>$cats,'options'=>$op->fetchAll(),'components'=>$co->fetchAll(),'offerTasks'=>$ta->fetchAll(),'taskTemplates'=>$tasks,'sellers'=>$sellers]);}
  public function updateOffer(Request $r,array $p):void{
-  $id=(int)$p['id'];$this->db->beginTransaction();try{$q=$this->db->prepare('SELECT COALESCE(MAX(version_no),0) FROM offer_versions WHERE offer_id=? FOR UPDATE');$q->execute([$id]);$no=(int)$q->fetchColumn()+1;$v=$this->insertOfferVersion($id,$no,$r);$u=$this->db->prepare("UPDATE offers SET category_id=?,seller_id=?,title=?,status=?,is_private=?,acceptance_deadline=?,private_offer_status=CASE WHEN ?=1 THEN COALESCE(private_offer_status,'pending') ELSE NULL END,current_version_id=?,updated_at=NOW() WHERE id=?");$private=(int)!!$r->input('is_private');$u->execute([(int)$r->input('category_id'),$private?(int)$r->input('seller_id'):null,trim((string)$r->input('title')),(string)$r->input('status'),$private,$r->input('acceptance_deadline')?:null,$private,$v,$id]);$this->db->commit();Session::flash('success','Neue Angebotsversion '.$no.' wurde veröffentlicht/gespeichert.');Response::redirect('/admin/angebote');}catch(\Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
+  $id=(int)$p['id'];$beforeQ=$this->db->prepare('SELECT seller_id,status,is_private,private_offer_status,title FROM offers WHERE id=?');$beforeQ->execute([$id]);$before=$beforeQ->fetch();if(!$before)Response::abort(404);
+  $private=(int)!!$r->input('is_private');$seller=$private?(int)$r->input('seller_id'):null;$status=(string)$r->input('status');$deadline=$r->input('acceptance_deadline')?:null;
+  if($private&&(!$seller||$seller<1)){Session::flash('error','Für ein Privatangebot muss eine Verkäuferin ausgewählt werden.');Response::redirect('/admin/angebote/'.$id.'/bearbeiten');}
+  $this->db->beginTransaction();try{$q=$this->db->prepare('SELECT COALESCE(MAX(version_no),0) FROM offer_versions WHERE offer_id=? FOR UPDATE');$q->execute([$id]);$no=(int)$q->fetchColumn()+1;$v=$this->insertOfferVersion($id,$no,$r);$u=$this->db->prepare("UPDATE offers SET category_id=?,seller_id=?,title=?,status=?,is_private=?,acceptance_deadline=?,private_offer_status=CASE WHEN ?=1 THEN COALESCE(private_offer_status,'pending') ELSE NULL END,current_version_id=?,updated_at=NOW() WHERE id=?");$u->execute([(int)$r->input('category_id'),$seller,trim((string)$r->input('title')),$status,$private,$deadline,$private,$v,$id]);$this->db->commit();
+   $becameActivePrivate=$private&&$status==='active'&&(($before['status']??'')!=='active'||!(int)($before['is_private']??0)||(int)($before['seller_id']??0)!==$seller);
+   if($becameActivePrivate&&(($before['private_offer_status']??'pending')==='pending'||!(int)($before['is_private']??0)))$this->notifyPrivateOffer($seller,$id,trim((string)$r->input('title')),$deadline,'new');
+   Session::flash('success','Neue Angebotsversion '.$no.' wurde veröffentlicht/gespeichert.');Response::redirect('/admin/angebote');}catch(\Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
  }
  public function reopenPrivateOffer(Request $r,array $p):void{
   $id=(int)$p['id'];
@@ -59,9 +70,18 @@ final class AdminController{
   try{$d=new \DateTimeImmutable($deadline);if($d<=new \DateTimeImmutable('now'))throw new \RuntimeException('Die neue Annahmefrist muss in der Zukunft liegen.');
    $this->db->prepare("UPDATE offers SET private_offer_status='pending',declined_reason=NULL,acceptance_deadline=?,status='active',updated_at=NOW() WHERE id=?")->execute([$d->format('Y-m-d H:i:s'),$id]);
    $this->db->prepare("INSERT INTO system_events(seller_id,event_type,actor_type,actor_id,payload_json,created_at) VALUES(?,'private_offer_reopened','admin',?,?,NOW())")->execute([$offer['seller_id'],$this->auth->admin()['id'],json_encode(['offer_id'=>$id,'acceptance_deadline'=>$d->format('Y-m-d H:i:s')],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+   $this->notifyPrivateOffer((int)$offer['seller_id'],$id,(string)$offer['title'],$d->format('Y-m-d H:i:s'),'reopened');
    Session::flash('success','Privatangebot wurde erneut freigegeben.');
   }catch(\Throwable $e){Session::flash('error',$e->getMessage());}
   Response::redirect('/admin/angebote/'.$id.'/bearbeiten');
+ }
+ private function notifyPrivateOffer(int $sellerId,int $offerId,string $title,?string $deadline,string $mode):void{
+  try{
+   $config=require $this->root.'/config/app.php';
+   $headline=$mode==='reopened'?'Privatangebot erneut freigegeben':'Neues Privatangebot für dich';
+   $message='Für dich wurde das Privatangebot „'.$title.'“ freigeschaltet.'.($deadline?' Annahmefrist: '.date('d.m.Y H:i',strtotime($deadline)).'.':'');
+   (new NotificationService($this->db,new Mailer($config)))->seller($sellerId,'private_offer',$headline,$message,'/angebote/'.$offerId,true);
+  }catch(\Throwable){}
  }
  private function insertOfferVersion(int $offerId,int $no,Request $r):int{
   $configuration=OfferFormService::configuration($r);

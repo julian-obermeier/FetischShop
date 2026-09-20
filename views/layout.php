@@ -8,6 +8,10 @@ $isSeller = (bool) Session::get('seller_id');
 $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $sellerUnread = (int) Session::get('seller_nav_unread', 0);
 $sellerUrgent = (int) Session::get('seller_nav_urgent', 0);
+$assetVersion = (string) max(
+    @filemtime(dirname(__DIR__) . '/public/assets/app.css') ?: 0,
+    @filemtime(dirname(__DIR__) . '/public/assets/app.js') ?: 0
+);
 $isSellerArea = !$isAdmin && $isSeller && (
     $currentPath === '/konto' || str_starts_with($currentPath, '/konto/')
     || $currentPath === '/angebote' || str_starts_with($currentPath, '/angebote/')
@@ -31,7 +35,7 @@ function sellerNavActive(string $currentPath, string $href): string {
 <title><?=View::e($pageTitle)?></title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/assets/app-icon.svg">
-<link rel="stylesheet" href="/assets/app.css">
+<link rel="stylesheet" href="/assets/app.css?v=<?=View::e($assetVersion)?>">
 </head>
 <body class="<?=$isAdmin?'admin-body':($isSellerArea?'seller-body':'')?>">
 <?php if($isAdmin):?>
@@ -119,6 +123,6 @@ function sellerNavActive(string $currentPath, string $href): string {
 <?php require $contentView;?>
 <footer class="site-footer"><div><strong>FetischShop</strong><p>Diskrete Ankaufsplattform für volljährige Verkäuferinnen.</p></div><nav><a href="/regeln">Regeln</a><a href="/kontakt">Kontakt</a><a href="/impressum">Impressum</a><a href="/datenschutz">Datenschutz</a><a href="/bedingungen">Bedingungen</a></nav></footer>
 <?php endif;?>
-<script src="/assets/app.js" defer></script>
+<script src="/assets/app.js?v=<?=View::e($assetVersion)?>" defer></script>
 </body>
 </html>

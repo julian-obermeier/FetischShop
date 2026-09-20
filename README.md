@@ -16,7 +16,7 @@ Eigener schlanker MVC-/Service-Kern mit PDO, Prepared Statements, CSRF, sicherer
 ## Status
 Aktiver Neuaufbau nach MASTERPROMPT vom 20.09.2026.
 
-Stand 0.8.0: Zusätzlich zu 0.7.0 besitzen Verkäuferinnen nun einen eigenen Bereich „Fristen & Kalender“ mit Priorisierung in überfällig, jetzt fällig, heute, morgen und später. Auftragslisten können durchsucht und nach aktiv, Auszahlung und Archiv gefiltert werden. Benachrichtigungen werden nicht mehr beim bloßen Öffnen pauschal gelesen, sondern können nach ungelesen gefiltert sowie einzeln oder gesammelt als gelesen markiert werden. Eingeloggte Verkäuferinnen bleiben beim Öffnen der Angebotsseiten im eigenen Konto-Layout; Angebotsdetails verwenden verständliche Erfüllungsbegriffe und zeigen vor der Annahme, ob ein Angebot wegen einer bereits belegten Kategorie, einer Frist oder fehlender E-Mail-Bestätigung aktuell nicht annehmbar ist. Die Abschlussansicht zeigt freigegebenen, bereits ausgezahlten und noch offenen Betrag sowie Archivstatus; abgeschlossene Chats werden als Nur-Lesen dargestellt. Weitere In-App-/E-Mail-Ereignisse wurden für Nachweisbeanstandungen, Auftragsstart, Verstöße, Zusatztage, Wert-/Optionsänderungen und Chatnachrichten ergänzt. Admin-Kalender, Archiv, globale Suche und Entscheidungsansicht wurden erweitert. Neu ist außerdem ein zentrales, filterbares Admin-Protokoll für System-, Auftrags- und digitale Rechteereignisse ohne rohe JSON-Anzeige. Der Systemstatus prüft zusätzlich HTTPS-Basis-URL, Cron-Schlüssel, Installationssperre und die Trennung der privaten Ablage vom Webroot.
+Stand 0.9.0: Zusätzlich zu 0.8.0 wurden die öffentlichen Plattformtexte erweitert. Unter /regeln gibt es nun eine eigene verständliche Regeln-Seite; „So funktioniert es“ und die FAQ decken Registrierung, Annahme, Vorabkontrolle, Fristen, Beschädigungen, Versand, digitale Revisionen, Rechte-Status, Wallet und Archivierung vollständig ab. Die PWA startet für Verkäuferinnen direkt im Konto-Bereich, bietet Schnellzugriffe auf Aufträge, Fristen, Wallet und Angebote und verwendet einen neutralen Offline-Fallback; private Aufträge, Medien, Adminseiten und Cron-Endpunkte werden bewusst nicht offline gecacht. Der Admin-Systemstatus besitzt nun zusätzlich einen manuellen Cron-Test und einen echten Test-E-Mail-Versand, um Deployments auf Shared Hosting unmittelbar prüfen zu können.
 
 ## Deployment nach Update
 
@@ -49,3 +49,17 @@ Private Nachweise und digitale Medien liegen außerhalb des öffentlichen Webroo
 - `017_digital_rights_lifecycle.sql` – Rechte-Lifecycle und Download-/Rechtehistorie für digitale Inhalte
 
 Für Auftragsbestätigungen muss `base_url` in `config/runtime.php` auf die produktive HTTPS-URL zeigen. Der Adminbereich zeigt unter `/admin/system/status` den Cron-Heartbeat, PHP-/DB-Status, Schreibrechte und ausstehende Migrationen.
+
+
+### PWA und Offline-Verhalten
+
+Die installierbare Web-App startet unter `/konto` und bietet Schnellzugriffe für Aufträge, Fristen, Wallet und Angebote. Dynamische Konto- und Auftragsdaten werden bewusst nicht offline gespeichert. Bei fehlender Verbindung erscheint eine neutrale Offline-Seite; private Medien, Cron-Endpunkte und Adminseiten werden vom Service Worker ausgeschlossen.
+
+### Betriebsdiagnose
+
+Unter `/admin/system/status` können Administratoren zusätzlich:
+- den Scheduler einmal manuell ausführen,
+- eine echte Test-E-Mail an eine frei eingegebene Adresse senden,
+- Cron-Heartbeat, HTTPS-Basis-URL, Cron-Schlüssel, Installationssperre, Migrationen und private Ablage prüfen.
+
+Die öffentlichen Plattformregeln befinden sich unter `/regeln`. Die rechtlichen Texte unter Impressum, Datenschutz und Bedingungen bleiben bewusst als prüfpflichtige Entwürfe gekennzeichnet und müssen vor Produktivbetrieb anhand des tatsächlichen Betreibers und der eingesetzten Dienstleister rechtlich geprüft werden.

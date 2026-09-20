@@ -129,3 +129,4 @@
 
 .offer-consent-group{margin:18px 0;padding:20px;border:1px solid #303642;border-radius:17px;background:rgba(12,15,20,.28)}.offer-consent-group .offer-section-heading{margin-bottom:12px}.offer-consent-group .offer-confirm-card:last-child{margin-bottom:0}
 .camera-required-input{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}.camera-error{padding:10px 12px;border-radius:10px;border:1px solid rgba(215,100,100,.35);background:rgba(215,100,100,.08);color:#e8abab;font-size:.84rem;line-height:1.45}.camera-tools.camera-required .camera-open{border-color:rgba(210,106,158,.45);color:#f0bdd6}
+.retake-form{display:grid;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid #2b313a}.retake-form label{display:grid;gap:6px}.retake-form input[type="file"]{width:100%}

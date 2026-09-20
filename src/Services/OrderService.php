@@ -175,6 +175,10 @@ final class OrderService
             $this->db->prepare("INSERT INTO system_events(seller_id,order_id,event_type,actor_type,actor_id,payload_json,created_at) VALUES(?,?,'order_accepted','seller',?,?,NOW())")
                 ->execute([$sellerId, $orderId, $sellerId, json_encode(['order_number' => $number, 'total' => $total, 'components' => count($definitions)], JSON_UNESCAPED_UNICODE)]);
 
+            if (!$hasPhysical) {
+                $this->instantiateOfferTasks($orderId, (int) $offer['id'], new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')));
+            }
+
             if ((int) $offer['is_private'] === 1) {
                 $this->db->prepare("UPDATE offers SET private_offer_status='accepted',updated_at=NOW() WHERE id=?")->execute([$offerId]);
             }
@@ -299,6 +303,7 @@ final class OrderService
 
             $this->db->prepare("UPDATE orders SET status='running',phase='execution',started_at=NOW(),updated_at=NOW() WHERE id=?")->execute([$orderId]);
             $this->db->prepare("UPDATE order_runs SET status='running',started_at=COALESCE(started_at,NOW()) WHERE id=?")->execute([$runId]);
+            $this->instantiateOfferTasks($orderId, (int) $order['offer_version_id'], $now);
 
             $chatQ = $this->db->prepare('SELECT id FROM chats WHERE order_id=?');
             $chatQ->execute([$orderId]);
@@ -316,6 +321,88 @@ final class OrderService
                 $this->db->rollBack();
             }
             throw $e;
+        }
+    }
+
+    private function instantiateOfferTasks(int $orderId, int $offerVersionId, DateTimeImmutable $start): void
+    {
+        $q = $this->db->prepare('SELECT * FROM offer_tasks WHERE offer_version_id=? ORDER BY sort_order,id');
+        $q->execute([$offerVersionId]);
+
+        foreach ($q->fetchAll() as $offerTask) {
+            $exists = $this->db->prepare('SELECT id FROM tasks WHERE order_id=? AND offer_task_id=?');
+            $exists->execute([$orderId, $offerTask['id']]);
+            if ($exists->fetchColumn()) {
+                continue;
+            }
+
+            $config = json_decode($offerTask['config_json'] ?: '[]', true) ?: [];
+            $description = trim((string) ($config['description'] ?? ''));
+            $scheduleType = (string) ($config['schedule_type'] ?? 'once');
+            if (!in_array($scheduleType, ['once', 'recurring', 'interval'], true)) {
+                $scheduleType = 'once';
+            }
+
+            $componentId = null;
+            if (!empty($config['order_component_id'])) {
+                $componentId = (int) $config['order_component_id'];
+            } elseif (!empty($config['category_id'])) {
+                $component = $this->db->prepare('SELECT id FROM order_components WHERE order_id=? AND category_id=? ORDER BY id LIMIT 1');
+                $component->execute([$orderId, (int) $config['category_id']]);
+                $componentId = $component->fetchColumn() ?: null;
+            }
+
+            $taskConfig = [
+                'fields' => is_array($config['fields'] ?? null) ? $config['fields'] : [],
+                'photos' => is_array($config['photos'] ?? null) ? $config['photos'] : [],
+                'violation' => is_array($config['violation'] ?? null) ? $config['violation'] : [],
+            ];
+
+            $this->db->prepare('INSERT INTO tasks(order_id,order_component_id,task_template_id,offer_task_id,title,description,schedule_type,config_json,created_at) VALUES(?,?,?,?,?,?,?,?,NOW())')
+                ->execute([
+                    $orderId,
+                    $componentId,
+                    $offerTask['task_template_id'] !== null ? (int) $offerTask['task_template_id'] : null,
+                    (int) $offerTask['id'],
+                    (string) $offerTask['title'],
+                    $description ?: null,
+                    $scheduleType,
+                    json_encode($taskConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ]);
+            $taskId = (int) $this->db->lastInsertId();
+
+            $offsets = [];
+            if (isset($config['offset_minutes']) && is_numeric($config['offset_minutes'])) {
+                $offsets[] = (int) $config['offset_minutes'];
+            }
+            if (is_array($config['offsets_minutes'] ?? null)) {
+                foreach ($config['offsets_minutes'] as $offset) {
+                    if (is_numeric($offset)) {
+                        $offsets[] = (int) $offset;
+                    }
+                }
+            }
+
+            $repeatEvery = max(0, (int) ($config['repeat_every_minutes'] ?? 0));
+            $repeatCount = max(0, min(100, (int) ($config['repeat_count'] ?? 0)));
+            if ($repeatEvery > 0 && $repeatCount > 0) {
+                for ($i = 1; $i <= $repeatCount; $i++) {
+                    $offsets[] = $repeatEvery * $i;
+                }
+            }
+
+            if (!$offsets) {
+                $offsets[] = max(0, (int) ($config['deadline_minutes'] ?? 60));
+            }
+
+            $offsets = array_values(array_unique($offsets));
+            sort($offsets);
+
+            foreach ($offsets as $offset) {
+                $due = $start->modify(($offset >= 0 ? '+' : '') . $offset . ' minutes');
+                $this->db->prepare("INSERT INTO task_executions(task_id,due_at,grace_ends_at,review_status,created_at) VALUES(?,?,?,'open',NOW())")
+                    ->execute([$taskId, $due->format('Y-m-d H:i:s'), $due->modify('+1 hour')->format('Y-m-d H:i:s')]);
+            }
         }
     }
 

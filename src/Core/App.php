@@ -21,6 +21,7 @@ use App\Http\Controllers\UpdaterController;
 use App\Http\Controllers\ShippingController;
 use App\Http\Controllers\DigitalController;
 use App\Http\Controllers\OperationsController;
+use App\Http\Controllers\CronController;
 
 final class App
 {
@@ -108,7 +109,9 @@ final class App
             $shipping = new ShippingController($this->root, $db, $auth);
             $digital = new DigitalController($this->root, $db, $auth);
             $operations = new OperationsController($this->root, $db);
+            $cron = new CronController($this->root, $db);
 
+            $router->get('/cron/{token}', [$cron, 'run']);
             $router->get('/media/evidence/{id}', [$media, 'evidence']);
             $router->get('/media/digital/{id}', [$media, 'digital']);
 
@@ -173,6 +176,7 @@ final class App
             $router->get('/admin/system/status', [$operations, 'systemStatus'], [$adminOnly]);
             $router->post('/admin/einstellungen', [$operations, 'saveSettings'], [$csrf, $adminOnly]);
             $router->post('/admin/einstellungen/ausfall', [$operations, 'createOutage'], [$csrf, $adminOnly]);
+            $router->post('/admin/einstellungen/cron-neu', [$operations, 'regenerateCronToken'], [$csrf, $adminOnly]);
             $router->get('/admin/auszahlungen', [$payouts, 'adminIndex'], [$adminOnly]);
             $router->post('/admin/auszahlungen/{id}', [$payouts, 'adminUpdate'], [$csrf, $adminOnly]);
             $router->get('/admin/system/update', [$updater, 'index'], [$adminOnly]);

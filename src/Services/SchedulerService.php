@@ -127,7 +127,7 @@ final class SchedulerService
 
     private function spontaneous(): int
     {
-        $q = $this->db->query("SELECT sr.id,sr.order_id,sr.requested_count FROM spontaneous_requests sr WHERE sr.grace_ends_at<NOW() AND sr.status NOT IN('completed','expired') AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE sr.grace_ends_at BETWEEN po.starts_at AND po.ends_at)");
+        $q = $this->db->query("SELECT sr.id,sr.order_id,sr.order_component_id,sr.requested_count FROM spontaneous_requests sr WHERE sr.grace_ends_at<NOW() AND sr.status NOT IN('completed','expired') AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE sr.grace_ends_at BETWEEN po.starts_at AND po.ends_at)");
         $made = 0;
 
         foreach ($q->fetchAll() as $row) {
@@ -137,7 +137,7 @@ final class SchedulerService
 
             for ($slot = 1; $slot <= $missing; $slot++) {
                 $sourceId = (int) $row['id'] * 1000 + $slot;
-                if ($this->ensureViolation((int) $row['order_id'], 'spontaneous_photo_missing', 'spontaneous_request', $sourceId, 'Gefordertes spontanes Foto wurde nicht innerhalb der Frist einschließlich Nachfrist eingereicht.', true)) {
+                if ($this->ensureViolation((int) $row['order_id'], 'spontaneous_photo_missing', 'spontaneous_request', $sourceId, 'Gefordertes spontanes Foto wurde nicht innerhalb der Frist einschließlich Nachfrist eingereicht.', true, $row['order_component_id'] ? (int) $row['order_component_id'] : null)) {
                     $made++;
                 }
             }

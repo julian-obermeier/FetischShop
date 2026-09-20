@@ -21,6 +21,27 @@ final class SellerScheduleService
         $q->execute([$sellerId,$from,$to]);
         $items = array_merge($items,$q->fetchAll());
 
+        $q = $this->db->prepare("SELECT o.id order_id,o.order_number,e.id source_id,'retake' event_type,
+            'Angeforderte Nachaufnahme' title,e.created_at starts_at,e.retake_deadline due_at,e.retake_grace_ends_at grace_at,
+            e.review_status source_status
+            FROM evidences e
+            JOIN orders o ON o.id=e.order_id
+            WHERE o.seller_id=? AND e.review_status='rejected' AND e.resolved_by_evidence_id IS NULL
+            AND e.retake_deadline IS NOT NULL AND e.retake_grace_ends_at>=? AND e.retake_deadline<=?");
+        $q->execute([$sellerId,$from,$to]);
+        $items = array_merge($items,$q->fetchAll());
+
+        $q = $this->db->prepare("SELECT o.id order_id,o.order_number,dc.id source_id,'digital_submission' event_type,
+            CONCAT('Digitale Abgabe: ',oc.title) title,dc.created_at starts_at,dc.deadline due_at,DATE_ADD(dc.deadline,INTERVAL 1 HOUR) grace_at,
+            dc.status source_status
+            FROM digital_components dc
+            JOIN order_components oc ON oc.id=dc.order_component_id
+            JOIN orders o ON o.id=oc.order_id
+            WHERE o.seller_id=? AND dc.deadline IS NOT NULL AND dc.status IN('open','draft','running')
+            AND DATE_ADD(dc.deadline,INTERVAL 1 HOUR)>=? AND dc.deadline<=?");
+        $q->execute([$sellerId,$from,$to]);
+        $items = array_merge($items,$q->fetchAll());
+
         $q = $this->db->prepare("SELECT o.id order_id,o.order_number,te.id source_id,'task' event_type,
             CONCAT('Zusatzaufgabe: ',t.title) title,te.created_at starts_at,te.due_at due_at,te.grace_ends_at grace_at,
             te.review_status source_status

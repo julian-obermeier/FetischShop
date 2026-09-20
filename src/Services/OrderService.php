@@ -23,6 +23,7 @@ final class OrderService{
    $w=$this->db->prepare('SELECT id FROM wallets WHERE seller_id=? FOR UPDATE');$w->execute([$sellerId]);$walletId=(int)$w->fetchColumn();$this->db->prepare('UPDATE wallets SET balance_reserved=balance_reserved+?,updated_at=NOW() WHERE id=?')->execute([$total,$walletId]);$this->db->prepare("INSERT INTO wallet_entries(wallet_id,order_id,entry_type,status,amount,created_at) VALUES(?,?,'order_reservation','reserved',?,NOW())")->execute([$walletId,$orderId,$total]);
    $this->db->prepare('INSERT INTO chats(order_id,is_readonly,created_at) VALUES(?,0,NOW())')->execute([$orderId]);$chat=(int)$this->db->lastInsertId();$this->db->prepare("INSERT INTO chat_messages(chat_id,sender_type,message,created_at) VALUES(?,'system',?,NOW())")->execute([$chat,'Auftrag #'.$number.' wurde angenommen.']);
    $this->db->prepare("INSERT INTO system_events(seller_id,order_id,event_type,actor_type,actor_id,payload_json,created_at) VALUES(?,?,'order_accepted','seller',?,?,NOW())")->execute([$sellerId,$orderId,$sellerId,json_encode(['order_number'=>$number,'total'=>$total])]);
+   if((int)$o['is_private']===1)$this->db->prepare("UPDATE offers SET private_offer_status='accepted',updated_at=NOW() WHERE id=?")->execute([$offerId]);
    $this->db->commit();return $orderId;
   }catch(\Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
  }

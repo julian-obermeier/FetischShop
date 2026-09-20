@@ -6,6 +6,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
 use App\Services\PrivateStorage;
+use App\Services\OrderLifecycleService;
 use PDO;
 use RuntimeException;
 use DateTimeImmutable;
@@ -325,8 +326,7 @@ final class DigitalController
             return;
         }
 
-        $this->db->prepare("UPDATE orders SET status='reviewing',phase='review',updated_at=NOW() WHERE id=?")
-            ->execute([$orderId]);
+        (new OrderLifecycleService($this->db))->enterReview($orderId);
     }
 
     private function systemChat(int $orderId, string $message): void

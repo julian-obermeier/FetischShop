@@ -35,9 +35,9 @@ final class App{
    $adminAuth=new AdminAuthController($this->root,$db,$auth);
    $admin=new AdminController($this->root,$db,$auth);
    $orders=new OrderController($this->root,$db,$auth);
-   $adminOrders=new AdminOrderController($this->root,$db,$auth);
+   $adminOrders=new AdminOrderController($this->root,$db,$auth);\n   $media=new MediaController($this->root,$db,$auth);
 
-   $router->get('/',[$public,'home']);
+   $router->get('/media/evidence/{id}',[$media,'evidence']);\n\n   $router->get('/',[$public,'home']);
    $router->get('/angebote',[$public,'offers']);
    $router->get('/angebote/{id}',[$public,'offer']);
    $router->get('/so-funktioniert-es',[$public,'howItWorks']);

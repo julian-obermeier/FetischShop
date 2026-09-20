@@ -170,6 +170,7 @@ final class App
             $router->get('/admin/suche', [$operations, 'search'], [$adminOnly]);
             $router->get('/admin/archiv', [$operations, 'archive'], [$adminOnly]);
             $router->get('/admin/einstellungen', [$operations, 'settings'], [$adminOnly]);
+            $router->get('/admin/system/status', [$operations, 'systemStatus'], [$adminOnly]);
             $router->post('/admin/einstellungen', [$operations, 'saveSettings'], [$csrf, $adminOnly]);
             $router->post('/admin/einstellungen/ausfall', [$operations, 'createOutage'], [$csrf, $adminOnly]);
             $router->get('/admin/auszahlungen', [$payouts, 'adminIndex'], [$adminOnly]);

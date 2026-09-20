@@ -4,7 +4,7 @@ use App\Core\Auth;use App\Core\Request;use App\Core\Response;use App\Core\Sessio
 final class AdminOrderController{
  public function __construct(private string $root,private PDO $db,private Auth $auth){}
  public function show(Request $r,array $p):void{
-  $q=$this->db->prepare("SELECT o.*,s.first_name,s.last_name,s.email,ov.title FROM orders o JOIN sellers s ON s.id=o.seller_id JOIN offer_versions ov ON ov.id=o.offer_version_id WHERE o.id=?");$q->execute([(int)$p['id']]);$o=$q->fetch();if(!$o)Response::abort(404);
+  $q=$this->db->prepare("SELECT o.*,s.first_name,s.last_name,s.email,ov.title,c.is_digital FROM orders o JOIN sellers s ON s.id=o.seller_id JOIN offer_versions ov ON ov.id=o.offer_version_id JOIN offers off ON off.id=o.offer_id JOIN categories c ON c.id=off.category_id WHERE o.id=?");$q->execute([(int)$p['id']]);$o=$q->fetch();if(!$o)Response::abort(404);
   $e=$this->db->prepare('SELECT * FROM evidences WHERE order_id=? ORDER BY created_at DESC');$e->execute([$o['id']]);$v=$this->db->prepare('SELECT * FROM violations WHERE order_id=? ORDER BY created_at DESC');$v->execute([$o['id']]);$d=$this->db->prepare('SELECT * FROM order_days WHERE order_id=? ORDER BY calendar_date');$d->execute([$o['id']]);
   $sp=$this->db->prepare("SELECT sr.*,(SELECT COUNT(*) FROM evidences x WHERE x.spontaneous_request_id=sr.id) uploaded_count FROM spontaneous_requests sr WHERE sr.order_id=? ORDER BY sr.created_at DESC");$sp->execute([$o['id']]);
   $tasks=$this->db->prepare("SELECT te.*,t.title,t.description,t.config_json FROM task_executions te JOIN tasks t ON t.id=te.task_id WHERE t.order_id=? ORDER BY te.due_at DESC");$tasks->execute([$o['id']]);

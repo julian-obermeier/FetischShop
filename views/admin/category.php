@@ -1,7 +1,7 @@
 <main class="section">
-<div class="admin-page-intro"><div><span class="eyebrow">Kategorie</span><h1><?=App\Core\View::e($category['name'])?></h1><p>Stammdaten und zusätzliche Artikelfelder dieser Kategorie.</p></div><a class="btn ghost" href="/admin/kategorien">Zurück zu Kategorien</a></div>
+<div class="admin-page-intro"><div><span class="eyebrow">Angebotsstruktur</span><h1><?=App\Core\View::e($category['name'])?></h1><p>Name, Status und zusätzliche Angaben, die bei der Artikelwahl abgefragt werden.</p></div><a class="btn ghost" href="/admin/kategorien">Zurück zu Kategorien</a></div>
 
-<section class="card admin-form settings-section"><h2>Kategorie bearbeiten</h2><form method="post" action="/admin/kategorien/<?=$category['id']?>" class="form-grid"><?=App\Core\Csrf::field()?>
+<section class="card admin-form settings-section"><h2>Grundeinstellungen</h2><form method="post" action="/admin/kategorien/<?=$category['id']?>" class="form-grid"><?=App\Core\Csrf::field()?>
 <label>Name<input name="name" value="<?=App\Core\View::e($category['name'])?>" required></label>
 <label>Übergeordnete Kategorie<select name="parent_id"><option value="">Keine</option><?php foreach($parents as $p):?><option value="<?=$p['id']?>" <?=((string)($category['parent_id']??'')===(string)$p['id'])?'selected':''?>><?=App\Core\View::e($p['name'])?></option><?php endforeach;?></select></label>
 <label>Sortierung<input name="sort_order" type="number" value="<?=$category['sort_order']?>"></label>
@@ -11,7 +11,7 @@
 <input type="hidden" name="slug" value="<?=App\Core\View::e($category['slug'])?>">
 <button class="btn primary full">Kategorie speichern</button></form></section>
 
-<section class="card admin-form settings-section"><h2>Zusätzliches Artikelfeld anlegen</h2><p class="muted">Damit kannst du bei der Artikelwahl zusätzliche Angaben abfragen, zum Beispiel Größe, Farbe oder Material.</p>
+<section class="card admin-form settings-section"><h2>Zusätzliche Artikelangabe</h2><p class="muted">Lege ein weiteres Feld fest, das Verkäuferinnen bei der Artikelwahl ausfüllen sollen.</p>
 <form method="post" action="/admin/kategorien/<?=$category['id']?>/felder" class="form-grid"><?=App\Core\Csrf::field()?>
 <label class="full">Bezeichnung<input name="label" placeholder="z. B. Schuhgröße" required></label>
 <label>Typ<select name="field_type"><option value="text">Text</option><option value="number">Zahl</option><option value="select">Auswahl</option><option value="multiselect">Mehrfachauswahl</option><option value="boolean">Ja / Nein</option><option value="date">Datum</option></select></label>
@@ -20,7 +20,7 @@
 <label class="check full"><input type="checkbox" name="is_required" value="1"><span>Dieses Feld ist Pflicht</span></label>
 <button class="btn primary full">Feld anlegen</button></form></section>
 
-<section><h2>Artikelfelder</h2><div class="worklist">
+<section><h2>Hinterlegte Artikelangaben</h2><div class="worklist">
 <?php foreach($fields as $field):?>
 <div class="card admin-form"><form method="post" action="/admin/kategorien/<?=$category['id']?>/felder/<?=$field['id']?>" class="form-grid"><?=App\Core\Csrf::field()?>
 <label class="full">Bezeichnung<input name="label" value="<?=App\Core\View::e($field['label'])?>" required></label>

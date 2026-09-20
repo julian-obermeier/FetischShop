@@ -270,6 +270,35 @@ final class ShippingController
             if (in_array($order['status'], ['rejected', 'completed', 'archived'], true)) {
                 throw new RuntimeException('Der Auftrag wurde bereits abschließend entschieden.');
             }
+            if ($order['phase'] !== 'review') {
+                throw new RuntimeException('Der Auftrag befindet sich noch nicht in der Abschlussprüfung.');
+            }
+
+            $physical = $this->db->prepare("SELECT COUNT(*) FROM order_components WHERE order_id=? AND component_type='physical'");
+            $physical->execute([$orderId]);
+            if ((int) $physical->fetchColumn() > 0) {
+                $shipment = $this->db->prepare("SELECT status FROM shipments WHERE order_id=?");
+                $shipment->execute([$orderId]);
+                if ($shipment->fetchColumn() !== 'received') {
+                    throw new RuntimeException('Physische Bestandteile müssen vor der Abschlussprüfung als eingegangen markiert sein.');
+                }
+            }
+
+            $digitalCount = $this->db->prepare("SELECT COUNT(*) FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE oc.order_id=?");
+            $digitalCount->execute([$orderId]);
+            if ((int) $digitalCount->fetchColumn() > 0) {
+                $unresolved = $this->db->prepare("SELECT COUNT(*) FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE oc.order_id=? AND dc.status NOT IN('accepted','partially_accepted','rejected')");
+                $unresolved->execute([$orderId]);
+                if ((int) $unresolved->fetchColumn() > 0) {
+                    throw new RuntimeException('Alle digitalen Bestandteile müssen vor der Abschlussprüfung einzeln entschieden sein.');
+                }
+
+                $failed = $this->db->prepare("SELECT COUNT(*) FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE oc.order_id=? AND dc.status='rejected'");
+                $failed->execute([$orderId]);
+                if ((int) $failed->fetchColumn() > 0 && $decision !== 'rejected') {
+                    throw new RuntimeException('Mindestens ein Bestandteil ist endgültig abgelehnt; der Gesamtauftrag muss daher abgelehnt werden.');
+                }
+            }
 
             $approved = $decision === 'accepted'
                 ? (float) $order['current_total']

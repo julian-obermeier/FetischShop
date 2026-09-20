@@ -7,6 +7,7 @@ use App\Core\Response;
 use App\Core\Session;
 use App\Core\View;
 use App\Services\PrivateStorage;
+use App\Services\OrderLifecycleService;
 use PDO;
 use RuntimeException;
 
@@ -258,7 +259,7 @@ final class ShippingController
             $digitalOpen = $this->db->prepare("SELECT COUNT(*) FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE oc.order_id=? AND dc.status NOT IN('accepted','partially_accepted','rejected')");
             $digitalOpen->execute([$orderId]);
             if ((int) $digitalOpen->fetchColumn() === 0) {
-                $this->db->prepare("UPDATE orders SET status='reviewing',phase='review',updated_at=NOW() WHERE id=?")->execute([$orderId]);
+                (new OrderLifecycleService($this->db))->enterReview($orderId);
                 $message = 'Wareneingang wurde bestätigt. Alle Bestandteile sind bereit für die Abschlussprüfung.';
             } else {
                 $this->db->prepare("UPDATE orders SET status='running',phase='execution',updated_at=NOW() WHERE id=?")->execute([$orderId]);

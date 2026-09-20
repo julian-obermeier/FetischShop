@@ -33,8 +33,6 @@ final class PublicController{
  public function howItWorks():void{View::render($this->root,'public/how',['pageTitle'=>'So funktioniert es']);}
  public function faq():void{View::render($this->root,'public/faq',['pageTitle'=>'FAQ']);}
  public function contact():void{View::render($this->root,'public/contact',['pageTitle'=>'Kontakt']);}
- public function imprint():void{View::render($this->root,'legal/imprint',['pageTitle'=>'Impressum']);}
- public function privacy():void{View::render($this->root,'legal/privacy',['pageTitle'=>'Datenschutz']);}
  public function terms():void{View::render($this->root,'legal/terms',['pageTitle'=>'Bedingungen']);}
  public function rules():void{View::render($this->root,'public/rules',['pageTitle'=>'Plattformregeln']);}
 }

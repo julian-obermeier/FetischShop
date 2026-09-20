@@ -35,7 +35,7 @@ final class App{
    $adminAuth=new AdminAuthController($this->root,$db,$auth);
    $admin=new AdminController($this->root,$db,$auth);
    $orders=new OrderController($this->root,$db,$auth);
-   $adminOrders=new AdminOrderController($this->root,$db,$auth);\n   $media=new MediaController($this->root,$db,$auth);\n   $profile=new SellerProfileController($this->root,$db,$auth);\n   $adminSellers=new AdminSellerController($this->root,$db,$auth);\n   $sellerWork=new SellerWorkController($this->root,$db,$auth);\n   $adminWork=new AdminWorkController($this->root,$db,$auth);\n   $adminTasks=new AdminTaskController($this->root,$db);
+   $adminOrders=new AdminOrderController($this->root,$db,$auth);\n   $media=new MediaController($this->root,$db,$auth);\n   $profile=new SellerProfileController($this->root,$db,$auth);\n   $adminSellers=new AdminSellerController($this->root,$db,$auth);\n   $sellerWork=new SellerWorkController($this->root,$db,$auth);\n   $adminWork=new AdminWorkController($this->root,$db,$auth);\n   $adminTasks=new AdminTaskController($this->root,$db);\n   $sellerOffers=new SellerOfferController($db,$auth);
 
    $router->get('/media/evidence/{id}',[$media,'evidence']);\n\n   $router->get('/',[$public,'home']);
    $router->get('/angebote',[$public,'offers']);
@@ -64,7 +64,7 @@ final class App{
    $router->get('/konto/auftraege',[$seller,'orders'],[$verifiedSeller]);
    $router->get('/konto/wallet',[$seller,'wallet'],[$sellerOnly]);
    $router->get('/konto/benachrichtigungen',[$seller,'notifications'],[$sellerOnly]);
-   $router->post('/konto/angebote/{id}/annehmen',[$orders,'acceptOffer'],[$csrf,$verifiedSeller]);
+   $router->post('/konto/angebote/{id}/annehmen',[$orders,'acceptOffer'],[$csrf,$verifiedSeller]);\n   $router->post('/konto/angebote/{id}/ablehnen',[$sellerOffers,'decline'],[$csrf,$verifiedSeller]);
    $router->get('/konto/auftraege/{id}',[$orders,'show'],[$verifiedSeller]);
    $router->post('/konto/auftraege/{id}/artikel',[$orders,'saveItem'],[$csrf,$verifiedSeller]);
    $router->post('/konto/auftraege/{id}/nachweis',[$orders,'uploadEvidence'],[$csrf,$verifiedSeller]);

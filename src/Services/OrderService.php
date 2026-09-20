@@ -6,7 +6,7 @@ final class OrderService{
  public function accept(int $sellerId,int $offerId,array $optionIds=[],bool $rightsAccepted=false):int{
   $this->db->beginTransaction();
   try{
-   $q=$this->db->prepare("SELECT o.id offer_id,o.seller_id private_seller_id,o.is_private,o.acceptance_deadline,o.title offer_title,ov.id version_id,ov.title,ov.description,ov.compensation,ov.fulfillment_model,ov.duration_value,ov.duration_unit,ov.rules_json,ov.evidence_json,ov.start_control_json,ov.shipping_json,ov.end_workflow_json,ov.violation_json,c.id category_id,c.is_digital FROM offers o JOIN offer_versions ov ON ov.id=o.current_version_id JOIN categories c ON c.id=o.category_id WHERE o.id=? AND o.status='active' FOR UPDATE");$q->execute([$offerId]);$o=$q->fetch();
+   $q=$this->db->prepare("SELECT o.id offer_id,o.seller_id private_seller_id,o.is_private,o.acceptance_deadline,o.title offer_title,ov.id version_id,ov.title,ov.description,ov.compensation,ov.fulfillment_model,ov.duration_value,ov.duration_unit,ov.rules_json,ov.evidence_json,ov.start_control_json,ov.shipping_json,ov.end_workflow_json,ov.violation_json,ov.settings_json,c.id category_id,c.is_digital FROM offers o JOIN offer_versions ov ON ov.id=o.current_version_id JOIN categories c ON c.id=o.category_id WHERE o.id=? AND o.status='active' FOR UPDATE");$q->execute([$offerId]);$o=$q->fetch();
    if(!$o)throw new RuntimeException('Angebot ist nicht mehr verfügbar.');
    if((int)$o['is_private']===1&&(int)$o['private_seller_id']!==$sellerId)throw new RuntimeException('Dieses Angebot ist nicht für dein Konto bestimmt.');
    if($o['acceptance_deadline']&&strtotime($o['acceptance_deadline'])<time())throw new RuntimeException('Die Annahmefrist ist abgelaufen.');
@@ -17,7 +17,24 @@ final class OrderService{
    $snapshot=json_encode(['offer_version_id'=>(int)$o['version_id'],'title'=>$o['title'],'description'=>$o['description'],'compensation'=>(float)$o['compensation'],'fulfillment_model'=>$o['fulfillment_model'],'duration_value'=>$o['duration_value'],'duration_unit'=>$o['duration_unit'],'rules'=>json_decode($o['rules_json']?:'[]',true),'evidence'=>json_decode($o['evidence_json']?:'[]',true),'start_control'=>json_decode($o['start_control_json']?:'[]',true),'shipping'=>json_decode($o['shipping_json']?:'[]',true),'end_workflow'=>json_decode($o['end_workflow_json']?:'[]',true),'violation'=>json_decode($o['violation_json']?:'[]',true)],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
    $i=$this->db->prepare("INSERT INTO orders(order_number,seller_id,offer_id,offer_version_id,status,phase,accepted_at,base_compensation,current_total,config_snapshot,created_at,updated_at) VALUES(?,?,?,?, 'precheck','preparation',NOW(),?,?,?,NOW(),NOW())");$i->execute([$number,$sellerId,$offerId,$o['version_id'],$o['compensation'],$total,$snapshot]);$orderId=(int)$this->db->lastInsertId();
    $this->db->prepare("INSERT INTO order_components(order_id,category_id,component_type,title,compensation,status,config_json,created_at,updated_at) VALUES(?,?,?,?,?,'preparation',?,NOW(),NOW())")->execute([$orderId,$o['category_id'],(int)$o['is_digital']?'digital':'physical',$o['title'],$o['compensation'],$snapshot]);
+   $orderComponentId=(int)$this->db->lastInsertId();
    $this->db->prepare("INSERT INTO order_runs(order_id,run_no,status,created_at) VALUES(?,1,'preparation',NOW())")->execute([$orderId]);
+   if((int)$o['is_digital']===1){
+    $settings=json_decode($o['settings_json']?:'[]',true)?:[];
+    $defs=$settings['digital_components']??[];
+    if(!$defs)$defs=[['title'=>$o['title'],'format_type'=>'mixed','compensation'=>(float)$o['compensation'],'requirements'=>$settings['digital']??[]]];
+    $first=true;
+    foreach($defs as $def){
+     $requirements=is_array($def['requirements']??null)?$def['requirements']:[];
+     $requirements['title']=$def['title']??$o['title'];
+     $comp=array_key_exists('compensation',$def)?(float)$def['compensation']:($first?(float)$o['compensation']:0.0);
+     $this->db->prepare("INSERT INTO digital_components(order_component_id,format_type,requirements_json,compensation,status,created_at,updated_at) VALUES(?,?,?,?, 'open',NOW(),NOW())")->execute([$orderComponentId,(string)($def['format_type']??'mixed'),json_encode($requirements,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$comp]);
+     $first=false;
+    }
+    $this->db->prepare("UPDATE order_components SET status='running',updated_at=NOW() WHERE id=?")->execute([$orderComponentId]);
+    $this->db->prepare("UPDATE order_runs SET status='running',started_at=NOW() WHERE order_id=? AND run_no=1")->execute([$orderId]);
+    $this->db->prepare("UPDATE orders SET status='running',phase='execution',started_at=NOW(),updated_at=NOW() WHERE id=?")->execute([$orderId]);
+   }
    foreach($selected as $x)$this->db->prepare('INSERT INTO order_options(order_id,offer_option_id,name,price,config_snapshot,created_at) VALUES(?,?,?,?,?,NOW())')->execute([$orderId,$x['id'],$x['name'],$x['price'],$x['requirements_json']]);
    if((int)$o['is_digital']===1)$this->db->prepare('INSERT INTO rights_acceptances(order_id,seller_id,clause_version,accepted_at) VALUES(?,?,?,NOW())')->execute([$orderId,$sellerId,'2026-09-20']);
    $w=$this->db->prepare('SELECT id FROM wallets WHERE seller_id=? FOR UPDATE');$w->execute([$sellerId]);$walletId=(int)$w->fetchColumn();$this->db->prepare('UPDATE wallets SET balance_reserved=balance_reserved+?,updated_at=NOW() WHERE id=?')->execute([$total,$walletId]);$this->db->prepare("INSERT INTO wallet_entries(wallet_id,order_id,entry_type,status,amount,created_at) VALUES(?,?,'order_reservation','reserved',?,NOW())")->execute([$walletId,$orderId,$total]);

@@ -124,7 +124,7 @@ $durationText=trim(($offer['duration_value']??'').' '.($offer['duration_unit']??
     <?php foreach($options as $op): $req=json_decode($op['requirements_json']?:'{}',true)?:[];$reqText=trim((string)($req['text']??''));?>
         <label class="offer-option-card">
             <div class="offer-option-main">
-                <input type="checkbox" name="options[]" value="<?=$op['id']?>">
+                <input type="checkbox" name="options[]" value="<?=$op['id']?>" data-option-price="<?=App\Core\View::e((string)(float)$op['price'])?>">
                 <div>
                     <b><?=AppCoreView::e($op['name'])?></b>
                     <?php if(trim((string)$op['description'])!==''):?><span><?=AppCoreView::e($op['description'])?></span><?php endif;?>
@@ -137,6 +137,11 @@ $durationText=trim(($offer['duration_value']??'').' '.($offer['duration_unit']??
     </div>
 </section>
 <?php endif;?>
+
+<div class="offer-total-bar" data-offer-total data-base-total="<?=App\Core\View::e((string)(float)$offer['compensation'])?>">
+    <div><small>Deine aktuelle Vergütung</small><strong data-offer-total-value><?=number_format((float)$offer['compensation'],2,',','.')?> €</strong></div>
+    <span data-offer-option-count>Keine Zusatzoption ausgewählt</span>
+</div>
 
 <?php if($hasDigital):?>
 <label class="offer-confirm-card">

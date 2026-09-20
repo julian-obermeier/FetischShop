@@ -151,6 +151,8 @@ final class App
             $router->post('/konto/wallet/auszahlung', [$payouts, 'request'], [$csrf, $sellerOnly]);
             $router->post('/konto/wallet/auszahlung/{id}/zurueckziehen', [$payouts, 'withdraw'], [$csrf, $sellerOnly]);
             $router->get('/konto/benachrichtigungen', [$seller, 'notifications'], [$sellerOnly]);
+            $router->post('/konto/benachrichtigungen/{id}/gelesen', [$seller, 'markNotificationRead'], [$csrf, $sellerOnly]);
+            $router->post('/konto/benachrichtigungen/alle-gelesen', [$seller, 'markAllNotificationsRead'], [$csrf, $sellerOnly]);
             $router->post('/konto/angebote/{id}/annehmen', [$orders, 'acceptOffer'], [$csrf, $verifiedSeller]);
             $router->post('/konto/angebote/{id}/ablehnen', [$sellerOffers, 'decline'], [$csrf, $verifiedSeller]);
             $router->get('/konto/auftraege/{id}', [$orders, 'show'], [$verifiedSeller]);

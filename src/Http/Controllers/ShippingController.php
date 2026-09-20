@@ -334,6 +334,9 @@ final class ShippingController
             if ($approved < 0 || $approved > (float) $order['current_total']) {
                 throw new RuntimeException('Der freigegebene Betrag ist ungültig.');
             }
+            if ($decision === 'partially_accepted' && $approved <= 0) {
+                throw new RuntimeException('Bei einer Teilfreigabe muss ein positiver Freigabebetrag angegeben werden.');
+            }
 
             $this->db->prepare("INSERT INTO final_reviews(order_id,decision,approved_amount,internal_note,seller_message,decided_at) VALUES(?,?,?,?,?,NOW())")
                 ->execute([$orderId, $decision, $approved, trim((string) $r->input('internal_note')) ?: null, trim((string) $r->input('seller_message')) ?: null]);

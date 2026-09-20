@@ -4,7 +4,25 @@ use App\Core\Auth;use App\Core\Request;use App\Core\Response;use App\Core\Sessio
 final class OrderController{
  public function __construct(private string $root,private PDO $db,private Auth $auth){}
  public function acceptOffer(Request $r,array $p):void{
-  $s=$this->auth->seller();try{if(!$r->input('summary_confirmation'))throw new RuntimeException('Bitte die Auftragszusammenfassung vor der Annahme bestätigen.');$options=$r->input('options',[]);if(!is_array($options))$options=[];$id=(new OrderService($this->db, $this->root))->accept((int)$s['id'],(int)$p['id'],$options,(bool)$r->input('rights_acceptance'));Session::flash('success','Auftrag wurde angenommen und für die Vorbereitung angelegt.');Response::redirect('/konto/auftraege/'.$id);}catch(\Throwable $e){Session::flash('error',$e->getMessage());Response::redirect('/angebote/'.$p['id']);}
+  $s=$this->auth->seller();
+  try{
+   foreach(['adult_confirmation'=>'Bitte bestätige deine Volljährigkeit.','own_goods_confirmation'=>'Bitte bestätige, dass Artikel und Inhalte von dir selbst stammen.','no_third_parties_confirmation'=>'Bitte bestätige, dass keine nicht einwilligenden Dritten beteiligt sind.','summary_confirmation'=>'Bitte die Auftragszusammenfassung vor der Annahme bestätigen.'] as $field=>$message){
+    if(!$r->input($field))throw new RuntimeException($message);
+   }
+   $options=$r->input('options',[]);if(!is_array($options))$options=[];
+   $consents=[
+    'terms_version'=>'2026-09-20',
+    'adult_confirmed'=>true,
+    'own_goods_confirmed'=>true,
+    'no_third_parties_confirmed'=>true,
+    'summary_confirmed'=>true,
+    'ip_address'=>$r->server['REMOTE_ADDR']??null,
+    'user_agent'=>$r->server['HTTP_USER_AGENT']??null,
+   ];
+   $id=(new OrderService($this->db,$this->root))->accept((int)$s['id'],(int)$p['id'],$options,(bool)$r->input('rights_acceptance'),$consents);
+   Session::flash('success','Auftrag wurde angenommen und für die Vorbereitung angelegt.');
+   Response::redirect('/konto/auftraege/'.$id);
+  }catch(\Throwable $e){Session::flash('error',$e->getMessage());Response::redirect('/angebote/'.$p['id']);}
  }
  public function show(Request $r,array $p):void{
   $s=$this->auth->seller();$q=$this->db->prepare("SELECT o.*,ov.title,ov.description,ov.duration_value,ov.duration_unit,ov.start_control_json,ov.evidence_json,c.name category_name,c.is_digital FROM orders o JOIN offer_versions ov ON ov.id=o.offer_version_id JOIN offers off ON off.id=o.offer_id JOIN categories c ON c.id=off.category_id WHERE o.id=? AND o.seller_id=?");$q->execute([(int)$p['id'],$s['id']]);$o=$q->fetch();if(!$o)Response::abort(404);

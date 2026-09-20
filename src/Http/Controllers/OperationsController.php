@@ -228,10 +228,16 @@ final class OperationsController
         }
         $outages = $this->db->query('SELECT * FROM platform_outages ORDER BY starts_at DESC LIMIT 50')->fetchAll();
 
+        $app = require $this->root . '/config/app.php';
+        $baseUrl = rtrim((string)($app['base_url'] ?? ''), '/');
+        $cronToken = (string)($settings['cron_token'] ?? '');
+        $cronUrl = ($baseUrl !== '' && $cronToken !== '') ? $baseUrl . '/cron/' . $cronToken : '';
+
         View::render($this->root, 'admin/settings', [
             'pageTitle' => 'Einstellungen',
             'settings' => $settings,
             'outages' => $outages,
+            'cronUrl' => $cronUrl,
         ]);
     }
 
@@ -254,6 +260,15 @@ final class OperationsController
         }
 
         Session::flash('success', 'Globale Einstellungen gespeichert.');
+        Response::redirect('/admin/einstellungen');
+    }
+
+    public function regenerateCronToken(): void
+    {
+        $token = bin2hex(random_bytes(32));
+        $q = $this->db->prepare("INSERT INTO settings(setting_key,setting_value,updated_at) VALUES('cron_token',?,NOW()) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_at=NOW()");
+        $q->execute([$token]);
+        Session::flash('success', 'Neue Cron-URL wurde erzeugt. Die bisherige URL ist ab sofort ungültig.');
         Response::redirect('/admin/einstellungen');
     }
 

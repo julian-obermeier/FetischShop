@@ -36,7 +36,7 @@ final class MediaController
     public function digital($r, array $p): void
     {
         $id = (int) $p['id'];
-        $q = $this->db->prepare("SELECT dv.*,o.seller_id,o.status order_status FROM digital_versions dv JOIN digital_submissions ds ON ds.id=dv.digital_submission_id JOIN digital_components dc ON dc.id=ds.digital_component_id JOIN order_components oc ON oc.id=dc.order_component_id JOIN orders o ON o.id=oc.order_id WHERE dv.id=?");
+        $q = $this->db->prepare("SELECT dv.*,dc.id digital_component_id,o.id order_id,o.seller_id,o.status order_status FROM digital_versions dv JOIN digital_submissions ds ON ds.id=dv.digital_submission_id JOIN digital_components dc ON dc.id=ds.digital_component_id JOIN order_components oc ON oc.id=dc.order_component_id JOIN orders o ON o.id=oc.order_id WHERE dv.id=?");
         $q->execute([$id]);
         $v = $q->fetch();
         if (!$v) {
@@ -53,6 +53,13 @@ final class MediaController
         }
 
         $download = $admin && (($r->query['download'] ?? '') === '1');
+        if ($download) {
+            try {
+                $this->db->prepare("INSERT INTO digital_rights_events(order_id,digital_component_id,event_type,actor_type,actor_id,note,created_at) VALUES(?,?,'admin_download','admin',?,?,NOW())")
+                    ->execute([$v['order_id'],$v['digital_component_id'],$admin['id']??null,'Version V'.(int)$v['version_no']]);
+            } catch (\Throwable) {
+            }
+        }
 
         if ($v['content_type'] === 'text') {
             header('Content-Type: text/plain; charset=utf-8');

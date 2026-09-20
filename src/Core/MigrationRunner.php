@@ -23,7 +23,7 @@ final class MigrationRunner{
    $ch=$sql[$i];
    if($escape){$buf.=$ch;$escape=false;continue;}
    if($ch==='\\'&&$quote!==null){$buf.=$ch;$escape=true;continue;}
-   if(($ch==="'"||$ch==='""')&&($quote===null||$quote===$ch)){$quote=$quote===null?$ch:null;$buf.=$ch;continue;}
+   if(($ch==="'"||$ch==='"')&&($quote===null||$quote===$ch)){$quote=$quote===null?$ch:null;$buf.=$ch;continue;}
    if($ch===';'&&$quote===null){if(trim($buf)!=='')$out[]=trim($buf);$buf='';continue;}
    $buf.=$ch;
   }

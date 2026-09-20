@@ -30,7 +30,7 @@ final class OrderService
                 throw new RuntimeException('Die Plattform ist ausschließlich für volljährige Verkäuferinnen bestimmt.');
             }
 
-            $q = $this->db->prepare("SELECT o.id offer_id,o.seller_id private_seller_id,o.is_private,o.acceptance_deadline,o.title offer_title,ov.*,c.id category_id,c.name category_name,c.is_digital FROM offers o JOIN offer_versions ov ON ov.id=o.current_version_id JOIN categories c ON c.id=o.category_id WHERE o.id=? AND o.status='active' FOR UPDATE");
+            $q = $this->db->prepare("SELECT o.id offer_id,o.seller_id private_seller_id,o.is_private,o.private_offer_status,o.acceptance_deadline,o.title offer_title,ov.*,c.id category_id,c.name category_name,c.is_digital FROM offers o JOIN offer_versions ov ON ov.id=o.current_version_id JOIN categories c ON c.id=o.category_id WHERE o.id=? AND o.status='active' FOR UPDATE");
             $q->execute([$offerId]);
             $offer = $q->fetch();
 

@@ -55,6 +55,7 @@ function sellerNavActive(string $currentPath, string $href): string {
 <a class="admin-nav-link<?=adminNavActive($currentPath,'/admin/auszahlungen')?>" href="/admin/auszahlungen"><span>€</span>Auszahlungen</a>
 <a class="admin-nav-link<?=adminNavActive($currentPath,'/admin/empfaengeradressen')?>" href="/admin/empfaengeradressen"><span>⌖</span>Empfängeradressen</a>
 <a class="admin-nav-link<?=adminNavActive($currentPath,'/admin/archiv')?>" href="/admin/archiv"><span>▤</span>Archiv</a>
+<a class="admin-nav-link<?=adminNavActive($currentPath,'/admin/protokoll')?>" href="/admin/protokoll"><span>≡</span>Protokoll</a>
 </div>
 <div class="admin-nav-group"><span class="admin-nav-label">System</span>
 <a class="admin-nav-link<?=adminNavActive($currentPath,'/admin/einstellungen')?>" href="/admin/einstellungen"><span>⚙</span>Einstellungen</a>

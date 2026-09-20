@@ -16,7 +16,7 @@ Eigener schlanker MVC-/Service-Kern mit PDO, Prepared Statements, CSRF, sicherer
 ## Status
 Aktiver Neuaufbau nach MASTERPROMPT vom 20.09.2026.
 
-Stand 0.6.0: Der Adminbereich wurde als eigene responsive Verwaltungsoberfläche mit fester, gruppierter Seitenleiste, globaler Suche, neuer Arbeitszentrale und zentraler Auftragsliste neu aufgebaut. Angebote, Kategorien und Aufgabenvorlagen werden vollständig über normale Formularfelder gepflegt; sichtbare JSON-Eingaben wurden entfernt. Angebotsregeln, Nachweisfenster, Vorabkontrollen, Versandschritte, Optionen, Kombi-Bestandteile und vorgeplante Aufgaben besitzen strukturierte Editoren mit Hinzufügen/Entfernen-Funktionen. Pflichtfotos in Zusatzaufgaben werden nun tatsächlich hochgeladen und geprüft. Der Cronjob wird für ALL-INKL primär über eine geheime URL ausgeführt, die im Adminbereich angezeigt und bei Bedarf neu erzeugt werden kann.
+Stand 0.7.0: Zusätzlich zu 0.6.0 wurde der komplette Verkäuferinnen-Bereich als eigene responsive Anwendung neu gestaltet: Desktop-Seitenleiste, mobile Bottom-Navigation, handlungsorientiertes Dashboard, verbesserte Auftragsliste, klare Fortschrittsanzeige im Auftrag, Schnellnavigation, verständliche Statusbezeichnungen, überarbeitete Wallet-/Auszahlungsansicht, Benachrichtigungs-Postfach, Profil sowie verbesserte Login- und Registrierungsseiten. Technische Rohdaten und Statuscodes werden im Verkäuferinnenbereich nicht mehr angezeigt. Neue Zusatzaufgaben, Fotoanforderungen, Schadensentscheidungen, Versand-/Wareneingangsereignisse, digitale Prüfungen, Abschlussentscheidungen und Auszahlungsstatus können Verkäuferinnen nun aktiv per In-App-Benachrichtigung und E-Mail erreichen. Für digitale Inhalte gibt es einen nachvollziehbaren Rechte-Lifecycle inklusive Verkäuferinnen-Zustimmung, Freigabe/Nichtfreigabe und protokollierten Admin-Downloads.
 
 ## Deployment nach Update
 
@@ -46,5 +46,6 @@ Private Nachweise und digitale Medien liegen außerhalb des öffentlichen Webroo
 - `014_component_extensions_payout_allocations.sql` – komponentenbezogene Verstöße/Verlängerungen und Auszahlung-zu-Auftrag-Zuordnung
 - `015_spontaneous_component_scope.sql` – komponentenbezogene spontane Fotoanforderungen
 - `016_cron_url_token.sql` – geheimer Schlüssel für den ALL-INKL-URL-Cronjob
+- `017_digital_rights_lifecycle.sql` – Rechte-Lifecycle und Download-/Rechtehistorie für digitale Inhalte
 
 Für Auftragsbestätigungen muss `base_url` in `config/runtime.php` auf die produktive HTTPS-URL zeigen. Der Adminbereich zeigt unter `/admin/system/status` den Cron-Heartbeat, PHP-/DB-Status, Schreibrechte und ausstehende Migrationen.

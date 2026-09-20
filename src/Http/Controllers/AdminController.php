@@ -1,6 +1,6 @@
 <?php
 namespace App\Http\Controllers;
-use App\Core\Auth;use App\Core\Request;use App\Core\Response;use App\Core\Session;use App\Core\View;use PDO;
+use App\Core\Auth;use App\Core\Request;use App\Core\Response;use App\Core\Session;use App\Core\View;use App\Services\OfferFormService;use PDO;
 final class AdminController{
  public function __construct(private string $root,private PDO $db,private Auth $auth){}
  public function dashboard():void{
@@ -37,7 +37,7 @@ final class AdminController{
  }
  public function deleteCategory(Request $r,array $p):void{$id=(int)$p['id'];$q=$this->db->prepare('SELECT COUNT(*) FROM offers WHERE category_id=?');$q->execute([$id]);if((int)$q->fetchColumn()>0){Session::flash('error','Kategorie kann wegen vorhandener Angebote/Aufträge nicht gelöscht werden.');Response::redirect('/admin/kategorien');}$this->db->prepare('DELETE FROM category_fields WHERE category_id=?')->execute([$id]);$this->db->prepare('DELETE FROM categories WHERE id=? AND is_system_template=0')->execute([$id]);Response::redirect('/admin/kategorien');}
  public function offers():void{$rows=$this->db->query("SELECT o.*,c.name category_name,ov.version_no,ov.compensation FROM offers o JOIN categories c ON c.id=o.category_id LEFT JOIN offer_versions ov ON ov.id=o.current_version_id ORDER BY o.updated_at DESC")->fetchAll();View::render($this->root,'admin/offers',['pageTitle'=>'Angebote','offers'=>$rows]);}
- public function offerCreateForm():void{$cats=$this->db->query("SELECT id,name,is_digital FROM categories WHERE is_active=1 ORDER BY sort_order,name")->fetchAll();View::render($this->root,'admin/offer-form',['pageTitle'=>'Angebot anlegen','offer'=>null,'version'=>null,'categories'=>$cats,'options'=>[],'components'=>[],'offerTasks'=>[]]);}
+ public function offerCreateForm():void{$cats=$this->db->query("SELECT id,name,is_digital FROM categories WHERE is_active=1 ORDER BY sort_order,name")->fetchAll();$tasks=$this->db->query("SELECT id,title FROM task_templates WHERE is_active=1 ORDER BY title")->fetchAll();View::render($this->root,'admin/offer-form',['pageTitle'=>'Angebot anlegen','offer'=>null,'version'=>null,'categories'=>$cats,'options'=>[],'components'=>[],'offerTasks'=>[],'taskTemplates'=>$tasks]);}
  public function createOffer(Request $r):void{
   $this->db->beginTransaction();try{
    $title=trim((string)$r->input('title'));$category=(int)$r->input('category_id');$private=(int)!!$r->input('is_private');$seller=$private?(int)$r->input('seller_id'):null;
@@ -45,18 +45,42 @@ final class AdminController{
    $v=$this->insertOfferVersion($offerId,1,$r);$this->db->prepare('UPDATE offers SET current_version_id=? WHERE id=?')->execute([$v,$offerId]);$this->db->commit();Session::flash('success','Angebot wurde angelegt.');Response::redirect('/admin/angebote');
   }catch(\Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
  }
- public function offerEditForm(Request $r,array $p):void{$id=(int)$p['id'];$q=$this->db->prepare('SELECT * FROM offers WHERE id=?');$q->execute([$id]);$o=$q->fetch();if(!$o)Response::abort(404);$v=$this->db->prepare('SELECT * FROM offer_versions WHERE id=?');$v->execute([$o['current_version_id']]);$version=$v->fetch();$cats=$this->db->query("SELECT id,name,is_digital FROM categories ORDER BY sort_order,name")->fetchAll();$op=$this->db->prepare('SELECT name,description,price,requirements_json,sort_order FROM offer_options WHERE offer_version_id=? ORDER BY sort_order,id');$op->execute([$o['current_version_id']]);$co=$this->db->prepare('SELECT category_id,component_type,title,compensation,fulfillment_model,duration_value,duration_unit,config_json,sort_order FROM offer_components WHERE offer_version_id=? ORDER BY sort_order,id');$co->execute([$o['current_version_id']]);$ta=$this->db->prepare('SELECT task_template_id,title,config_json,sort_order FROM offer_tasks WHERE offer_version_id=? ORDER BY sort_order,id');$ta->execute([$o['current_version_id']]);View::render($this->root,'admin/offer-form',['pageTitle'=>'Angebot bearbeiten','offer'=>$o,'version'=>$version,'categories'=>$cats,'options'=>$op->fetchAll(),'components'=>$co->fetchAll(),'offerTasks'=>$ta->fetchAll()]);}
+ public function offerEditForm(Request $r,array $p):void{$id=(int)$p['id'];$q=$this->db->prepare('SELECT * FROM offers WHERE id=?');$q->execute([$id]);$o=$q->fetch();if(!$o)Response::abort(404);$v=$this->db->prepare('SELECT * FROM offer_versions WHERE id=?');$v->execute([$o['current_version_id']]);$version=$v->fetch();$cats=$this->db->query("SELECT id,name,is_digital FROM categories ORDER BY sort_order,name")->fetchAll();$tasks=$this->db->query("SELECT id,title FROM task_templates WHERE is_active=1 ORDER BY title")->fetchAll();$op=$this->db->prepare('SELECT name,description,price,requirements_json,sort_order FROM offer_options WHERE offer_version_id=? ORDER BY sort_order,id');$op->execute([$o['current_version_id']]);$co=$this->db->prepare('SELECT category_id,component_type,title,compensation,fulfillment_model,duration_value,duration_unit,config_json,sort_order FROM offer_components WHERE offer_version_id=? ORDER BY sort_order,id');$co->execute([$o['current_version_id']]);$ta=$this->db->prepare('SELECT task_template_id,title,config_json,sort_order FROM offer_tasks WHERE offer_version_id=? ORDER BY sort_order,id');$ta->execute([$o['current_version_id']]);View::render($this->root,'admin/offer-form',['pageTitle'=>'Angebot bearbeiten','offer'=>$o,'version'=>$version,'categories'=>$cats,'options'=>$op->fetchAll(),'components'=>$co->fetchAll(),'offerTasks'=>$ta->fetchAll(),'taskTemplates'=>$tasks]);}
  public function updateOffer(Request $r,array $p):void{
   $id=(int)$p['id'];$this->db->beginTransaction();try{$q=$this->db->prepare('SELECT COALESCE(MAX(version_no),0) FROM offer_versions WHERE offer_id=? FOR UPDATE');$q->execute([$id]);$no=(int)$q->fetchColumn()+1;$v=$this->insertOfferVersion($id,$no,$r);$u=$this->db->prepare("UPDATE offers SET category_id=?,seller_id=?,title=?,status=?,is_private=?,acceptance_deadline=?,private_offer_status=CASE WHEN ?=1 THEN COALESCE(private_offer_status,'pending') ELSE NULL END,current_version_id=?,updated_at=NOW() WHERE id=?");$private=(int)!!$r->input('is_private');$u->execute([(int)$r->input('category_id'),$private?(int)$r->input('seller_id'):null,trim((string)$r->input('title')),(string)$r->input('status'),$private,$r->input('acceptance_deadline')?:null,$private,$v,$id]);$this->db->commit();Session::flash('success','Neue Angebotsversion '.$no.' wurde veröffentlicht/gespeichert.');Response::redirect('/admin/angebote');}catch(\Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
  }
  private function insertOfferVersion(int $offerId,int $no,Request $r):int{
-  $decode=function(string $key,array $default=[] )use($r):array{$raw=trim((string)$r->input($key));if($raw==='')return $default;$data=json_decode($raw,true);if(!is_array($data))throw new \RuntimeException($key.' enthält ungültiges JSON.');return $data;};
+  $configuration=OfferFormService::configuration($r);
   $q=$this->db->prepare('INSERT INTO offer_versions(offer_id,version_no,title,description,compensation,fulfillment_model,duration_value,duration_unit,rules_json,evidence_json,start_control_json,shipping_json,end_workflow_json,violation_json,settings_json,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
-  $q->execute([$offerId,$no,trim((string)$r->input('title')),trim((string)$r->input('description')),(float)$r->input('compensation'),(string)$r->input('fulfillment_model'),$r->input('duration_value')!==''?(int)$r->input('duration_value'):null,$r->input('duration_unit')?:null,json_encode($decode('rules_json'),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),json_encode($decode('evidence_json'),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),json_encode($decode('start_control_json'),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),json_encode($decode('shipping_json'),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),json_encode($decode('end_workflow_json'),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),json_encode($decode('violation_json'),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),json_encode($decode('settings_json'),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+  $q->execute([
+   $offerId,$no,trim((string)$r->input('title')),trim((string)$r->input('description')),
+   round((float)str_replace(',','.',(string)$r->input('compensation')),2),(string)$r->input('fulfillment_model'),
+   $r->input('duration_value')!==''?(int)$r->input('duration_value'):null,$r->input('duration_unit')?:null,
+   json_encode($configuration['rules'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+   json_encode($configuration['evidence'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+   json_encode($configuration['start_control'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+   json_encode($configuration['shipping'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+   json_encode($configuration['end_workflow'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+   json_encode($configuration['violation'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+   json_encode($configuration['settings'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)
+  ]);
   $versionId=(int)$this->db->lastInsertId();
-  foreach($decode('options_json') as $idx=>$x){if(empty($x['name']))continue;$this->db->prepare('INSERT INTO offer_options(offer_version_id,name,description,price,requirements_json,sort_order,is_active,created_at) VALUES(?,?,?,?,?,?,1,NOW())')->execute([$versionId,$x['name'],$x['description']??null,(float)($x['price']??0),json_encode($x['requirements']??[],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),(int)($x['sort_order']??$idx)]);}
-  foreach($decode('components_json') as $idx=>$x){if(empty($x['category_id'])||empty($x['title']))continue;$this->db->prepare('INSERT INTO offer_components(offer_version_id,category_id,component_type,title,compensation,fulfillment_model,duration_value,duration_unit,config_json,sort_order,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,NOW())')->execute([$versionId,(int)$x['category_id'],($x['component_type']??'physical')==='digital'?'digital':'physical',$x['title'],(float)($x['compensation']??0),$x['fulfillment_model']??'once',isset($x['duration_value'])?(int)$x['duration_value']:null,$x['duration_unit']??null,json_encode($x['config']??[],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),(int)($x['sort_order']??$idx)]);}
-  foreach($decode('offer_tasks_json') as $idx=>$x){if(empty($x['title']))continue;$this->db->prepare('INSERT INTO offer_tasks(offer_version_id,task_template_id,title,config_json,sort_order,created_at) VALUES(?,?,?,?,?,NOW())')->execute([$versionId,!empty($x['task_template_id'])?(int)$x['task_template_id']:null,$x['title'],json_encode($x['config']??[],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),(int)($x['sort_order']??$idx)]);}
+
+  foreach(OfferFormService::options($r) as $x){
+   $this->db->prepare('INSERT INTO offer_options(offer_version_id,name,description,price,requirements_json,sort_order,is_active,created_at) VALUES(?,?,?,?,?,?,1,NOW())')
+    ->execute([$versionId,$x['name'],$x['description']?:null,$x['price'],json_encode($x['requirements'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$x['sort_order']]);
+  }
+
+  foreach(OfferFormService::components($r,$configuration) as $x){
+   $this->db->prepare('INSERT INTO offer_components(offer_version_id,category_id,component_type,title,compensation,fulfillment_model,duration_value,duration_unit,config_json,sort_order,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,NOW())')
+    ->execute([$versionId,$x['category_id'],$x['component_type'],$x['title'],$x['compensation'],$x['fulfillment_model'],$x['duration_value'],$x['duration_unit'],json_encode($x['config'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$x['sort_order']]);
+  }
+
+  foreach(OfferFormService::tasks($r) as $x){
+   $this->db->prepare('INSERT INTO offer_tasks(offer_version_id,task_template_id,title,config_json,sort_order,created_at) VALUES(?,?,?,?,?,NOW())')
+    ->execute([$versionId,$x['task_template_id'],$x['title'],json_encode($x['config'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$x['sort_order']]);
+  }
+
   return $versionId;
  }
  public function duplicateOffer(Request $r,array $p):void{

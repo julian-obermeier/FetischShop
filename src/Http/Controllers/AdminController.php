@@ -66,6 +66,25 @@ final class AdminController{
  public function saveOfferTemplate(Request $r,array $p):void{
   $id=(int)$p['id'];$q=$this->db->prepare('SELECT o.*,ov.* FROM offers o JOIN offer_versions ov ON ov.id=o.current_version_id WHERE o.id=?');$q->execute([$id]);$x=$q->fetch();if(!$x)Response::abort(404);$payload=['category_id'=>(int)$x['category_id'],'version'=>$x];foreach(['offer_options','offer_components','offer_tasks'] as $table){$s=$this->db->prepare("SELECT * FROM $table WHERE offer_version_id=? ORDER BY id");$s->execute([$x['current_version_id']]);$payload[$table]=$s->fetchAll();}$this->db->prepare('INSERT INTO offer_templates(title,category_id,template_json,is_active,created_at,updated_at) VALUES(?,?,?,1,NOW(),NOW())')->execute([$x['title'],(int)$x['category_id'],json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);Session::flash('success','Angebot wurde als Vorlage gespeichert.');Response::redirect('/admin/angebote');
  }
+ public function offerTemplates():void{
+  $rows=$this->db->query("SELECT ot.*,c.name category_name FROM offer_templates ot LEFT JOIN categories c ON c.id=ot.category_id WHERE ot.is_active=1 ORDER BY ot.updated_at DESC,ot.id DESC")->fetchAll();
+  View::render($this->root,'admin/offer-templates',['pageTitle'=>'Angebotsvorlagen','templates'=>$rows]);
+ }
+ public function useOfferTemplate(Request $r,array $p):void{
+  $id=(int)$p['id'];$q=$this->db->prepare('SELECT * FROM offer_templates WHERE id=? AND is_active=1');$q->execute([$id]);$tpl=$q->fetch();if(!$tpl)Response::abort(404);
+  $payload=json_decode($tpl['template_json']?:'{}',true)?:[];$v=$payload['version']??[];if(!$v)throw new \RuntimeException('Vorlage enthält keine Angebotsversion.');
+  $this->db->beginTransaction();try{
+   $title=trim((string)($v['title']??$tpl['title']));$category=(int)($payload['category_id']??$tpl['category_id']);
+   $this->db->prepare("INSERT INTO offers(category_id,title,status,is_private,created_at,updated_at) VALUES(?,?,'draft',0,NOW(),NOW())")->execute([$category,$title.' (Vorlage)']);$offerId=(int)$this->db->lastInsertId();
+   $cols=['title','description','compensation','fulfillment_model','duration_value','duration_unit','rules_json','evidence_json','start_control_json','shipping_json','end_workflow_json','violation_json','settings_json'];$vals=[];foreach($cols as $col)$vals[]=$v[$col]??null;
+   $this->db->prepare('INSERT INTO offer_versions(offer_id,version_no,'.implode(',',$cols).',created_at) VALUES(?,1,'.implode(',',array_fill(0,count($cols),'?')).',NOW())')->execute(array_merge([$offerId],$vals));$versionId=(int)$this->db->lastInsertId();
+   foreach(($payload['offer_options']??[]) as $x)$this->db->prepare('INSERT INTO offer_options(offer_version_id,name,description,price,requirements_json,sort_order,is_active,created_at) VALUES(?,?,?,?,?,?,?,NOW())')->execute([$versionId,$x['name'],$x['description']??null,(float)($x['price']??0),$x['requirements_json']??'[]',(int)($x['sort_order']??0),(int)($x['is_active']??1)]);
+   foreach(($payload['offer_components']??[]) as $x)$this->db->prepare('INSERT INTO offer_components(offer_version_id,category_id,component_type,title,compensation,fulfillment_model,duration_value,duration_unit,config_json,sort_order,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,NOW())')->execute([$versionId,(int)$x['category_id'],$x['component_type'],$x['title'],(float)$x['compensation'],$x['fulfillment_model'],$x['duration_value']!==null?(int)$x['duration_value']:null,$x['duration_unit']??null,$x['config_json']??'[]',(int)($x['sort_order']??0)]);
+   foreach(($payload['offer_tasks']??[]) as $x)$this->db->prepare('INSERT INTO offer_tasks(offer_version_id,task_template_id,title,config_json,sort_order,created_at) VALUES(?,?,?,?,?,NOW())')->execute([$versionId,$x['task_template_id']!==null?(int)$x['task_template_id']:null,$x['title'],$x['config_json']??'[]',(int)($x['sort_order']??0)]);
+   $this->db->prepare('UPDATE offers SET current_version_id=? WHERE id=?')->execute([$versionId,$offerId]);$this->db->commit();Session::flash('success','Neues Angebots-Entwurf aus Vorlage erstellt.');
+  }catch(\Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
+  Response::redirect('/admin/angebote/'.$offerId.'/bearbeiten');
+ }
  private function cloneVersionChildren(int $from,int $to):void{
   $maps=['offer_options'=>['name','description','price','requirements_json','sort_order','is_active'],'offer_components'=>['category_id','component_type','title','compensation','fulfillment_model','duration_value','duration_unit','config_json','sort_order'],'offer_tasks'=>['task_template_id','title','config_json','sort_order']];
   foreach($maps as $table=>$cols){$q=$this->db->prepare("SELECT ".implode(',',$cols)." FROM $table WHERE offer_version_id=? ORDER BY id");$q->execute([$from]);foreach($q->fetchAll() as $row){$sql="INSERT INTO $table(offer_version_id,".implode(',',$cols).",created_at) VALUES(?,".implode(',',array_fill(0,count($cols),'?')).",NOW())";$this->db->prepare($sql)->execute(array_merge([$to],array_values($row)));}}

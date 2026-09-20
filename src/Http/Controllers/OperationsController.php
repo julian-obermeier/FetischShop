@@ -5,6 +5,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
 use App\Core\View;
+use App\Core\MigrationRunner;
 use PDO;
 use DateTimeImmutable;
 use DateInterval;
@@ -177,6 +178,45 @@ final class OperationsController
     {
         $orders = $this->db->query("SELECT o.*,s.first_name,s.last_name,ov.title,fr.decision,fr.approved_amount FROM orders o JOIN sellers s ON s.id=o.seller_id JOIN offer_versions ov ON ov.id=o.offer_version_id LEFT JOIN final_reviews fr ON fr.order_id=o.id WHERE o.archived_at IS NOT NULL OR o.status='rejected' ORDER BY COALESCE(o.archived_at,o.finished_at,o.updated_at) DESC")->fetchAll();
         View::render($this->root, 'admin/archive', ['pageTitle' => 'Archiv', 'orders' => $orders]);
+    }
+
+    public function systemStatus(): void
+    {
+        $migrationRunner = new MigrationRunner($this->db, $this->root);
+        $pending = $migrationRunner->pending();
+
+        $settingsQ = $this->db->prepare("SELECT setting_key,setting_value,updated_at FROM settings WHERE setting_key IN ('scheduler_last_run','scheduler_last_result')");
+        $settingsQ->execute();
+        $runtime = [];
+        foreach ($settingsQ->fetchAll() as $row) {
+            $runtime[$row['setting_key']] = $row;
+        }
+
+        $cronLastRun = $runtime['scheduler_last_run']['setting_value'] ?? null;
+        $cronAge = $cronLastRun ? max(0, time() - strtotime($cronLastRun)) : null;
+        $dbVersion = (string) $this->db->query('SELECT VERSION()')->fetchColumn();
+        $privateStorage = $this->root . '/storage/private';
+        $logDir = $this->root . '/storage/logs';
+
+        $checks = [
+            ['label' => 'PHP-Version', 'ok' => version_compare(PHP_VERSION, '8.1.0', '>='), 'value' => PHP_VERSION],
+            ['label' => 'PDO MySQL', 'ok' => extension_loaded('pdo_mysql'), 'value' => extension_loaded('pdo_mysql') ? 'aktiv' : 'fehlt'],
+            ['label' => 'Fileinfo', 'ok' => extension_loaded('fileinfo'), 'value' => extension_loaded('fileinfo') ? 'aktiv' : 'fehlt'],
+            ['label' => 'mbstring', 'ok' => extension_loaded('mbstring'), 'value' => extension_loaded('mbstring') ? 'aktiv' : 'fehlt'],
+            ['label' => 'Private Ablage', 'ok' => is_dir($privateStorage) && is_writable($privateStorage), 'value' => is_dir($privateStorage) && is_writable($privateStorage) ? 'beschreibbar' : 'nicht beschreibbar'],
+            ['label' => 'Log-Verzeichnis', 'ok' => is_dir($logDir) && is_writable($logDir), 'value' => is_dir($logDir) && is_writable($logDir) ? 'beschreibbar' : 'nicht beschreibbar'],
+            ['label' => 'Mail-Funktion', 'ok' => function_exists('mail'), 'value' => function_exists('mail') ? 'verfügbar' : 'nicht verfügbar'],
+            ['label' => 'Cron-Heartbeat', 'ok' => $cronAge !== null && $cronAge <= 900, 'value' => $cronLastRun ? date('d.m.Y H:i:s', strtotime($cronLastRun)) . ' · vor ' . (int) floor($cronAge / 60) . ' Min.' : 'noch kein Lauf'],
+            ['label' => 'Datenbank', 'ok' => true, 'value' => $dbVersion],
+            ['label' => 'Migrationen', 'ok' => count($pending) === 0, 'value' => count($pending) === 0 ? 'aktuell' : count($pending) . ' offen'],
+        ];
+
+        View::render($this->root, 'admin/system-status', [
+            'pageTitle' => 'Systemstatus',
+            'checks' => $checks,
+            'pendingMigrations' => $pending,
+            'schedulerResult' => json_decode((string)($runtime['scheduler_last_result']['setting_value'] ?? '{}'), true) ?: [],
+        ]);
     }
 
     public function settings(): void

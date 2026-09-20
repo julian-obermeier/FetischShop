@@ -2,7 +2,9 @@
 namespace App\Http\Controllers;
 
 use App\Core\Auth;
+use App\Core\Request;
 use App\Core\View;
+use App\Services\SellerScheduleService;
 use PDO;
 
 final class SellerController
@@ -149,6 +151,55 @@ final class SellerController
             WHERE o.seller_id=? ORDER BY o.created_at DESC");
         $q->execute([$s['id']]);
         View::render($this->root, 'seller/orders', ['pageTitle' => 'Meine Aufträge', 'orders' => $q->fetchAll()]);
+    }
+
+    public function schedule(Request $r): void
+    {
+        $s = $this->auth->seller();
+        $view = (string) $r->input('view', 'upcoming');
+        if (!in_array($view, ['upcoming','week','month'], true)) {
+            $view = 'upcoming';
+        }
+
+        $anchorRaw = trim((string) $r->input('date'));
+        $anchor = $anchorRaw !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorRaw)
+            ? new \DateTimeImmutable($anchorRaw . ' 00:00:00')
+            : new \DateTimeImmutable('today');
+
+        if ($view === 'week') {
+            $from = $anchor->modify('monday this week')->setTime(0,0,0);
+            $to = $from->modify('+6 days')->setTime(23,59,59);
+        } elseif ($view === 'month') {
+            $from = $anchor->modify('first day of this month')->setTime(0,0,0);
+            $to = $anchor->modify('last day of this month')->setTime(23,59,59);
+        } else {
+            $from = new \DateTimeImmutable('-1 day 00:00:00');
+            $to = new \DateTimeImmutable('+30 days 23:59:59');
+        }
+
+        $items = (new SellerScheduleService($this->db))->items(
+            (int) $s['id'],
+            $from->format('Y-m-d H:i:s'),
+            $to->format('Y-m-d H:i:s')
+        );
+
+        $groups = ['overdue'=>[],'now'=>[],'today'=>[],'tomorrow'=>[],'later'=>[]];
+        foreach ($items as $item) {
+            if ($item['is_done']) {
+                continue;
+            }
+            $groups[$item['urgency']][] = $item;
+        }
+
+        View::render($this->root, 'seller/schedule', [
+            'pageTitle' => 'Fristen & Kalender',
+            'viewMode' => $view,
+            'anchorDate' => $anchor->format('Y-m-d'),
+            'from' => $from,
+            'to' => $to,
+            'groups' => $groups,
+            'allItems' => $items,
+        ]);
     }
 
     public function wallet(): void

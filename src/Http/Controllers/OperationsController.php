@@ -354,7 +354,7 @@ final class OperationsController
             if(!empty($result['locked'])){
                 Session::flash('error','Der Cronjob läuft bereits in einem anderen Prozess.');
             }else{
-                Session::flash('success','Cronjob wurde manuell ausgeführt. Erinnerungen: '.(int)($result['reminders']??0).', neue Prüffälle: '.((int)($result['evidence_violations']??0)+(int)($result['task_violations']??0)+(int)($result['spontaneous_violations']??0)+(int)($result['damage_violations']??0)+(int)($result['revision_violations']??0)+(int)($result['shipping_violations']??0)).'.');
+                Session::flash('success','Cronjob wurde manuell ausgeführt. Erinnerungen: '.(int)($result['reminders']??0).', neue Prüffälle: '.((int)($result['evidence_violations']??0)+(int)($result['task_violations']??0)+(int)($result['spontaneous_violations']??0)+(int)($result['damage_violations']??0)+(int)($result['revision_violations']??0)+(int)($result['digital_submission_violations']??0)+(int)($result['shipping_violations']??0)).'.');
             }
         } catch (\Throwable $e) {
             Session::flash('error','Cron-Test fehlgeschlagen: '.$e->getMessage());

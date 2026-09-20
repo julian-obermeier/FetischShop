@@ -120,5 +120,20 @@ jobs:
               throw new RuntimeException('Scheduler-Smoke-Test lieferte kein Ergebnis.');
           }
 
+          $requiredColumns = [
+              ['shipping_steps','created_at'],
+              ['evidence_windows','camera_required'],
+              ['precheck_requirements','camera_required'],
+              ['order_acceptance_consents','adult_confirmed'],
+              ['digital_components','rights_status'],
+          ];
+          $columnQ = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?");
+          foreach ($requiredColumns as [$table,$column]) {
+              $columnQ->execute([$table,$column]);
+              if ((int)$columnQ->fetchColumn() !== 1) {
+                  throw new RuntimeException('Schema-Spalte fehlt: '.$table.'.'.$column);
+              }
+          }
+
           echo "Workflow SQL smoke tests passed." . PHP_EOL;
           PHP

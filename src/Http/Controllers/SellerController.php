@@ -124,6 +124,27 @@ final class SellerController
             ];
         }
 
+        $scheduleItems=(new SellerScheduleService($this->db))->items(
+            (int)$s['id'],
+            date('Y-m-d H:i:s',strtotime('-1 day')),
+            date('Y-m-d H:i:s',strtotime('+7 days'))
+        );
+        $scheduleTitles=[
+            'revision'=>'Digitale Revision offen',
+            'damage'=>'Beschädigungsnachweis offen',
+            'shipping'=>'Versandschritt offen',
+        ];
+        foreach($scheduleItems as $item){
+            if($item['is_done']||!isset($scheduleTitles[$item['event_type']]))continue;
+            $actions[]=[
+                'priority'=>in_array($item['urgency'],['overdue','now'],true)?0:($item['urgency']==='today'?1:2),
+                'title'=>$scheduleTitles[$item['event_type']],
+                'text'=>($item['order_number']?'#'.$item['order_number'].' · ':'').$item['title'],
+                'url'=>$item['url'],
+                'due'=>$item['due_at'],
+            ];
+        }
+
         usort($actions, static function(array $a, array $b): int {
             if ($a['priority'] !== $b['priority']) return $a['priority'] <=> $b['priority'];
             if ($a['due'] && $b['due']) return strtotime($a['due']) <=> strtotime($b['due']);

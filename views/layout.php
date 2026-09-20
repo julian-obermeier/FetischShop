@@ -1,0 +1,7 @@
+<?php use App\Core\Session;use App\Core\View;$pageTitle=$pageTitle??'FetischShop';?>
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#8f3d68"><title><?=View::e($pageTitle)?></title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/assets/app-icon.svg"><link rel="stylesheet" href="/assets/app.css"></head><body>
+<header class="site-header"><a class="brand" href="/">Fetisch<span>Shop</span></a><nav><a href="/angebote">Angebote</a><a href="/so-funktioniert-es">Ablauf</a><a href="/faq">FAQ</a><?php if(Session::get('seller_id')):?><a href="/konto">Mein Bereich</a><?php else:?><a href="/login">Login</a><?php endif;?></nav></header>
+<?php if($m=Session::pullFlash('success')):?><div class="flash success"><?=View::e($m)?></div><?php endif;?><?php if($m=Session::pullFlash('error')):?><div class="flash danger"><?=View::e($m)?></div><?php endif;?>
+<?php require $contentView;?>
+<footer class="site-footer"><div><strong>FetischShop</strong><p>Diskrete Ankaufsplattform für volljährige Verkäuferinnen.</p></div><nav><a href="/kontakt">Kontakt</a><a href="/impressum">Impressum</a><a href="/datenschutz">Datenschutz</a><a href="/bedingungen">Bedingungen</a></nav></footer>
+<script src="/assets/app.js" defer></script></body></html>

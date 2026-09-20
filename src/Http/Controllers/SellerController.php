@@ -130,6 +130,8 @@ final class SellerController
             date('Y-m-d H:i:s',strtotime('+7 days'))
         );
         $scheduleTitles=[
+            'retake'=>'Nachaufnahme offen',
+            'digital_submission'=>'Digitale Abgabe offen',
             'revision'=>'Digitale Revision offen',
             'damage'=>'Beschädigungsnachweis offen',
             'shipping'=>'Versandschritt offen',

@@ -31,7 +31,14 @@ final class AdminOrderController{
   }
   View::render($this->root,'admin/order',['pageTitle'=>'Auftrag #'.$o['order_number'],'order'=>$o,'components'=>$components,'run'=>$run,'precheckRequirements'=>$precheckRequirements,'evidences'=>$e->fetchAll(),'violations'=>$v->fetchAll(),'days'=>$d->fetchAll(),'spontaneous'=>$sp->fetchAll(),'taskExecutions'=>$tasks->fetchAll(),'taskTemplates'=>$tpl,'damageCases'=>$damage->fetchAll(),'damageRequests'=>$damageReq->fetchAll(),'messages'=>$m->fetchAll(),'shipping'=>$shipping,'shippingSteps'=>$shippingSteps,'addresses'=>$addresses,'finalReview'=>$final,'orderOptions'=>$orderOptions,'availableOptions'=>$availableOptions,'adjustments'=>$adjustments,'digitalComponents'=>$digitalComponents,'digitalVersions'=>$digitalVersions,'revisionRounds'=>$revisionRounds,'revisionItems'=>$revisionItems]);
  }
- public function reviewEvidence(Request $r,array $p):void{$status=(string)$r->input('decision');if(!in_array($status,['accepted','rejected'],true))Response::abort(422);$q=$this->db->prepare('UPDATE evidences SET review_status=?,rejection_reason=?,rejection_note=? WHERE id=? AND order_id=?');$q->execute([$status,$status==='rejected'?(string)$r->input('reason'):null,$status==='rejected'?(string)$r->input('note'):null,(int)$p['evidenceId'],(int)$p['id']]);Session::flash('success','Nachweisentscheidung gespeichert.');Response::redirect('/admin/auftraege/'.$p['id']);}
+ public function reviewEvidence(Request $r,array $p):void{
+  $status=(string)$r->input('decision');if(!in_array($status,['accepted','rejected'],true))Response::abort(422);
+  $reason=$status==='rejected'?trim((string)$r->input('reason')):null;$note=$status==='rejected'?trim((string)$r->input('note')):null;$deadline=null;$grace=null;
+  if($status==='rejected'&&trim((string)$r->input('retake_deadline'))!==''){$d=new DateTimeImmutable((string)$r->input('retake_deadline'));$deadline=$d->format('Y-m-d H:i:s');$grace=$d->modify('+1 hour')->format('Y-m-d H:i:s');}
+  $q=$this->db->prepare('UPDATE evidences SET review_status=?,rejection_reason=?,rejection_note=?,retake_deadline=?,retake_grace_ends_at=? WHERE id=? AND order_id=?');
+  $q->execute([$status,$reason?:null,$note?:null,$deadline,$grace,(int)$p['evidenceId'],(int)$p['id']]);
+  Session::flash('success',$status==='accepted'?'Nachweis wurde akzeptiert.':'Nachweis wurde beanstandet'.($deadline?' und mit Nachforderungsfrist versehen.':'.'));Response::redirect('/admin/auftraege/'.$p['id']);
+ }
  public function approvePrecheck(Request $r,array $p):void{try{(new OrderService($this->db))->startAfterPrecheck((int)$p['id']);Session::flash('success','Vorabkontrolle freigegeben. Auftrag wurde unmittelbar gestartet.');}catch(\Throwable $e){Session::flash('error',$e->getMessage());}Response::redirect('/admin/auftraege/'.$p['id']);}
  public function decideViolation(Request $r,array $p):void{
   $decision=(string)$r->input('decision');$id=(int)$p['violationId'];$q=$this->db->prepare('SELECT * FROM violations WHERE id=? AND order_id=?');$q->execute([$id,(int)$p['id']]);$v=$q->fetch();if(!$v)Response::abort(404);

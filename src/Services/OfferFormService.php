@@ -13,6 +13,7 @@ final class OfferFormService
         $windowStarts = self::array($r->input('evidence_start', []));
         $windowEnds = self::array($r->input('evidence_end', []));
         $windowCounts = self::array($r->input('evidence_count', []));
+        $windowCamera = self::array($r->input('evidence_camera_required', []));
         $windows = [];
         foreach ($windowNames as $i => $name) {
             $name = trim((string) $name);
@@ -26,12 +27,14 @@ final class OfferFormService
                 'start' => $start,
                 'end' => $end,
                 'required_count' => max(1, (int) ($windowCounts[$i] ?? 1)),
+                'camera_required' => ((string)($windowCamera[$i] ?? '1')) === '1',
             ];
         }
 
         $labels = self::array($r->input('precheck_label', []));
         $descriptions = self::array($r->input('precheck_description', []));
         $counts = self::array($r->input('precheck_count', []));
+        $precheckCamera = self::array($r->input('precheck_camera_required', []));
         $requirements = [];
         foreach ($labels as $i => $label) {
             $label = trim((string) $label);
@@ -43,6 +46,7 @@ final class OfferFormService
                 'label' => $label,
                 'description' => trim((string) ($descriptions[$i] ?? '')),
                 'required_count' => max(1, (int) ($counts[$i] ?? 1)),
+                'camera_required' => ((string)($precheckCamera[$i] ?? '1')) === '1',
             ];
         }
 

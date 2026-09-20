@@ -13,7 +13,22 @@ final class PublicController{
   $comp=$this->db->prepare("SELECT oc.*,c.name category_name,c.is_digital FROM offer_components oc JOIN categories c ON c.id=oc.category_id WHERE oc.offer_version_id=? ORDER BY oc.sort_order,oc.id");$comp->execute([$offer['current_version_id']]);$components=$comp->fetchAll();
   $taskQ=$this->db->prepare("SELECT * FROM offer_tasks WHERE offer_version_id=? ORDER BY sort_order,id");$taskQ->execute([$offer['current_version_id']]);$offerTasks=$taskQ->fetchAll();
   $hasDigital=(int)$offer['is_digital']===1;foreach($components as $co){if($co['component_type']==='digital'||(int)$co['is_digital']===1){$hasDigital=true;break;}}
-  View::render($this->root,'public/offer',['pageTitle'=>$offer['title'],'offer'=>$offer,'options'=>$opt->fetchAll(),'components'=>$components,'offerTasks'=>$offerTasks,'hasDigital'=>$hasDigital,'seller'=>$seller]);
+  $eligibilityReason=null;
+  if($seller){
+   if(empty($seller['email_verified_at']))$eligibilityReason='Bitte bestätige zuerst deine E-Mail-Adresse.';
+   elseif($offer['acceptance_deadline']&&strtotime($offer['acceptance_deadline'])<time())$eligibilityReason='Die Annahmefrist für dieses Angebot ist abgelaufen.';
+   elseif((int)$offer['is_private']===1&&$offer['private_offer_status']!=='pending')$eligibilityReason='Dieses Privatangebot ist nicht mehr annehmbar.';
+   else{
+    $categoryIds=[];
+    if($components){foreach($components as $co)$categoryIds[(int)$co['category_id']]=true;}else{$categoryIds[(int)$offer['category_id']]=true;}
+    foreach(array_keys($categoryIds) as $categoryId){
+     $block=$this->db->prepare("SELECT o.order_number FROM orders o JOIN order_components oc ON oc.order_id=o.id WHERE o.seller_id=? AND oc.category_id=? AND o.status NOT IN('rejected','cancelled','paid','archived') LIMIT 1");
+     $block->execute([$seller['id'],$categoryId]);
+     if($active=$block->fetchColumn()){$eligibilityReason='Eine Kategorie dieses Angebots ist bereits durch deinen aktiven Auftrag #'.$active.' belegt.';break;}
+    }
+   }
+  }
+  View::render($this->root,'public/offer',['pageTitle'=>$offer['title'],'offer'=>$offer,'options'=>$opt->fetchAll(),'components'=>$components,'offerTasks'=>$offerTasks,'hasDigital'=>$hasDigital,'seller'=>$seller,'eligibilityReason'=>$eligibilityReason]);
  }
  public function howItWorks():void{View::render($this->root,'public/how',['pageTitle'=>'So funktioniert es']);}
  public function faq():void{View::render($this->root,'public/faq',['pageTitle'=>'FAQ']);}

@@ -38,3 +38,5 @@
  .seller-content .filters{grid-template-columns:1fr}
  .seller-content .filters .btn{grid-column:auto}
 }
+
+.camera-tools{display:grid;gap:10px;margin-top:8px}.camera-panel{padding:12px;border:1px solid #303744;border-radius:14px;background:#0c0f14}.camera-panel video{display:block;width:100%;max-height:460px;object-fit:contain;border-radius:10px;background:#000}.camera-panel .row-actions{margin-top:10px}.camera-preview{display:block;width:min(100%,420px);max-height:320px;object-fit:contain;border-radius:12px;border:1px solid #303744;background:#0b0d11}.camera-open{justify-self:start}

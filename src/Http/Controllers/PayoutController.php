@@ -6,6 +6,8 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
 use App\Core\View;
+use App\Services\NotificationService;
+use App\Services\Mailer;
 use PDO;
 use RuntimeException;
 
@@ -225,12 +227,12 @@ final class PayoutController
                 $this->db->prepare('UPDATE wallets SET balance_available=?,updated_at=NOW() WHERE id=?')->execute([$newBalance, $wallet['id']]);
                 $this->db->prepare("INSERT INTO wallet_entries(wallet_id,payout_request_id,entry_type,status,amount,balance_after,metadata_json,created_at) VALUES(?,?,'payout','paid',?,?,?,NOW())")
                     ->execute([$wallet['id'], $id, -1 * (float) $payout['requested_amount'], $newBalance, json_encode(['archived_orders' => $archivedOrders], JSON_UNESCAPED_UNICODE)]);
-                $this->db->prepare("INSERT INTO notifications(seller_id,dedupe_key,type,title,message,url,created_at) VALUES(?,?,'payout','Auszahlung abgeschlossen',?,'/konto/wallet',NOW())")
-                    ->execute([$payout['seller_id'], 'payout:' . $id . ':paid', 'Deine Auszahlung über ' . number_format((float) $payout['net_amount'], 2, ',', '.') . ' € wurde als ausgezahlt markiert.']);
+
             }
 
             $this->db->prepare('UPDATE payout_requests SET status=?,processed_at=CASE WHEN ? IN (\'paid\',\'rejected\') THEN NOW() ELSE processed_at END WHERE id=?')->execute([$status, $status, $id]);
             $this->db->commit();
+            $this->notifyPayout($payout,$status);
             Session::flash('success', 'Auszahlungsstatus wurde aktualisiert.');
         } catch (\Throwable $e) {
             if ($this->db->inTransaction()) {
@@ -240,6 +242,22 @@ final class PayoutController
         }
 
         Response::redirect('/admin/auszahlungen');
+    }
+
+    private function notifyPayout(array $payout,string $status):void
+    {
+        try {
+            $labels=[
+                'in_review'=>['Auszahlung wird geprüft','Dein Auszahlungsantrag wird jetzt geprüft.'],
+                'approved'=>['Auszahlung freigegeben','Dein Auszahlungsantrag wurde freigegeben und wartet auf die Auszahlung.'],
+                'paid'=>['Auszahlung abgeschlossen','Deine Auszahlung über '.number_format((float)$payout['net_amount'],2,',','.').' € wurde als ausgezahlt markiert.'],
+                'rejected'=>['Auszahlung abgelehnt','Dein Auszahlungsantrag wurde abgelehnt. Bitte prüfe dein Wallet oder wende dich bei Fragen an den Betreiber.'],
+            ];
+            [$title,$message]=$labels[$status]??['Auszahlung aktualisiert','Der Status deiner Auszahlung wurde aktualisiert.'];
+            $config=require $this->root.'/config/app.php';
+            (new NotificationService($this->db,new Mailer($config)))->seller((int)$payout['seller_id'],'payout',$title,$message,'/konto/wallet',true);
+        } catch (\Throwable) {
+        }
     }
 
     private function allocatePaidOrders(array $payout): array

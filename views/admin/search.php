@@ -1,4 +1,4 @@
-<?php $typeLabels=['seller'=>'Verkäuferin','order'=>'Auftrag','offer'=>'Angebot','shipment'=>'Sendung','payout'=>'Auszahlung'];?>
+<?php $typeLabels=['seller'=>'Verkäuferin','order'=>'Auftrag','offer'=>'Angebot','shipment'=>'Sendung','payout'=>'Auszahlung','support'=>'Supportticket'];?>
 <main class="section">
 <div class="admin-page-intro"><div><span class="eyebrow">Navigation</span><h1>Globale Suche</h1><p>Verkäuferinnen, Aufträge, Angebote, Trackingnummern und Auszahlungen durchsuchen.</p></div></div>
 <form method="get" class="card filters"><input class="full" name="q" value="<?=App\Core\View::e($term)?>" placeholder="Name, E-Mail, Telefon, Auftragsnummer, Angebot, Tracking …" autofocus><button class="btn primary">Suchen</button></form>

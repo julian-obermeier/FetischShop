@@ -35,11 +35,11 @@ $keyLabels=[
 $moneyKeys=['total','delta','amount','approved_amount'];
 ?>
 <main class="section">
-<div class="admin-page-intro"><div><span class="eyebrow">Nachvollziehbarkeit</span><h1>Protokoll</h1><p>Zentrale Historie wichtiger System-, Auftrags- und Rechteereignisse.</p></div></div>
+<div class="admin-page-intro"><div><span class="eyebrow">Nachvollziehbarkeit</span><h1>Änderungsprotokoll</h1><p>Wichtige Auftrags-, Konto-, Rechte- und Systemereignisse chronologisch nachvollziehen.</p></div></div>
 
 <form method="get" class="card filters">
 <input type="search" name="q" value="<?=App\Core\View::e($filterTerm)?>" placeholder="Auftrag, Verkäuferin, E-Mail oder Ereignis">
-<select name="actor"><option value="">Alle Auslöser</option><option value="seller" <?=$filterActor==='seller'?'selected':''?>>Verkäuferin</option><option value="admin" <?=$filterActor==='admin'?'selected':''?>>Administrator</option><option value="system" <?=$filterActor==='system'?'selected':''?>>System</option></select>
+<select name="actor"><option value="">Alle Quellen</option><option value="seller" <?=$filterActor==='seller'?'selected':''?>>Verkäuferin</option><option value="admin" <?=$filterActor==='admin'?'selected':''?>>Administrator</option><option value="system" <?=$filterActor==='system'?'selected':''?>>System</option></select>
 <select name="event"><option value="">Alle Ereignisse</option><?php foreach($eventTypes as $type):?><option value="<?=App\Core\View::e($type)?>" <?=$filterEvent===$type?'selected':''?>><?=App\Core\View::e($eventLabels[$type]??ucfirst(str_replace('_',' ',$type)))?></option><?php endforeach;?></select>
 <input type="date" name="from" value="<?=App\Core\View::e($filterFrom)?>">
 <input type="date" name="to" value="<?=App\Core\View::e($filterTo)?>">
@@ -54,6 +54,6 @@ $moneyKeys=['total','delta','amount','approved_amount'];
 <?php if($e['payload']):?><div class="worklist"><?php foreach($e['payload'] as $key=>$value): if($value===null||$value===''||is_array($value))continue;?><div class="work-row"><div><span><?=App\Core\View::e($keyLabels[$key]??ucfirst(str_replace('_',' ',$key)))?></span></div><strong><?php if(in_array($key,$moneyKeys,true)&&is_numeric($value)):?><?=number_format((float)$value,2,',','.')?> €<?php else:?><?=App\Core\View::e((string)$value)?><?php endif;?></strong></div><?php endforeach;?></div><?php endif;?>
 </div>
 <?php endforeach;?>
-<?php if(!$events):?><div class="empty">Keine Protokolleinträge passen zu den Filtern.</div><?php endif;?>
+<?php if(!$events):?><div class="empty">Für diese Filter wurden keine Protokolleinträge gefunden.</div><?php endif;?>
 </div>
 </main>

@@ -126,6 +126,7 @@ final class App
             $router->get('/impressum', [$public, 'imprint']);
             $router->get('/datenschutz', [$public, 'privacy']);
             $router->get('/bedingungen', [$public, 'terms']);
+            $router->get('/regeln', [$public, 'rules']);
 
             $router->get('/registrieren', [$sellerAuth, 'registerForm']);
             $router->post('/registrieren', [$sellerAuth, 'register'], [$csrf]);

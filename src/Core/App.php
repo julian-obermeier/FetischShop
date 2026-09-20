@@ -35,7 +35,7 @@ final class App{
    $adminAuth=new AdminAuthController($this->root,$db,$auth);
    $admin=new AdminController($this->root,$db,$auth);
    $orders=new OrderController($this->root,$db,$auth);
-   $adminOrders=new AdminOrderController($this->root,$db,$auth);\n   $media=new MediaController($this->root,$db,$auth);\n   $profile=new SellerProfileController($this->root,$db,$auth);\n   $adminSellers=new AdminSellerController($this->root,$db,$auth);\n   $sellerWork=new SellerWorkController($this->root,$db,$auth);\n   $adminWork=new AdminWorkController($this->root,$db,$auth);\n   $adminTasks=new AdminTaskController($this->root,$db);\n   $sellerOffers=new SellerOfferController($db,$auth);
+   $adminOrders=new AdminOrderController($this->root,$db,$auth);\n   $media=new MediaController($this->root,$db,$auth);\n   $profile=new SellerProfileController($this->root,$db,$auth);\n   $adminSellers=new AdminSellerController($this->root,$db,$auth);\n   $sellerWork=new SellerWorkController($this->root,$db,$auth);\n   $adminWork=new AdminWorkController($this->root,$db,$auth);\n   $adminTasks=new AdminTaskController($this->root,$db);\n   $sellerOffers=new SellerOfferController($db,$auth);\n   $adminCategory=new AdminCategoryController($this->root,$db);
 
    $router->get('/media/evidence/{id}',[$media,'evidence']);\n\n   $router->get('/',[$public,'home']);
    $router->get('/angebote',[$public,'offers']);
@@ -75,7 +75,7 @@ final class App{
    $router->post('/admin/logout',[$adminAuth,'logout'],[$csrf,$adminOnly]);
    $router->get('/admin',[$admin,'dashboard'],[$adminOnly]);
    $router->get('/admin/verkaeuferinnen',[$adminSellers,'index'],[$adminOnly]);\n   $router->get('/admin/verkaeuferinnen/{id}',[$adminSellers,'show'],[$adminOnly]);\n   $router->post('/admin/verkaeuferinnen/{id}',[$adminSellers,'update'],[$csrf,$adminOnly]);\n   $router->post('/admin/verkaeuferinnen/{id}/loeschen',[$adminSellers,'delete'],[$csrf,$adminOnly]);\n   $router->get('/admin/aufgaben',[$adminTasks,'index'],[$adminOnly]);\n   $router->post('/admin/aufgaben',[$adminTasks,'save'],[$csrf,$adminOnly]);\n   $router->get('/admin/kategorien',[$admin,'categories'],[$adminOnly]);
-   $router->post('/admin/kategorien',[$admin,'createCategory'],[$csrf,$adminOnly]);
+   $router->post('/admin/kategorien',[$admin,'createCategory'],[$csrf,$adminOnly]);\n   $router->get('/admin/kategorien/{id}',[$adminCategory,'show'],[$adminOnly]);\n   $router->post('/admin/kategorien/{id}/konfiguration',[$adminCategory,'config'],[$csrf,$adminOnly]);\n   $router->post('/admin/kategorien/{id}/felder',[$adminCategory,'addField'],[$csrf,$adminOnly]);\n   $router->post('/admin/kategorien/{id}/felder/{fieldId}',[$adminCategory,'updateField'],[$csrf,$adminOnly]);\n   $router->post('/admin/kategorien/{id}/felder/{fieldId}/loeschen',[$adminCategory,'deleteField'],[$csrf,$adminOnly]);
    $router->post('/admin/kategorien/{id}',[$admin,'updateCategory'],[$csrf,$adminOnly]);
    $router->post('/admin/kategorien/{id}/duplizieren',[$admin,'duplicateCategory'],[$csrf,$adminOnly]);
    $router->post('/admin/kategorien/{id}/loeschen',[$admin,'deleteCategory'],[$csrf,$adminOnly]);

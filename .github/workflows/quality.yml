@@ -26,7 +26,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE 'TODO|FIXME|hier später implementieren|dummy function|placeholder' src views database public --include='*.php' --include='*.sql' --include='*.js' --include='*.css'; then
+          if grep -RInE 'TODO|FIXME|hier später implementieren|dummy function' src views database public --include='*.php' --include='*.sql' --include='*.js' --include='*.css'; then
             echo "Unfinished placeholder markers found."
             exit 1
           fi

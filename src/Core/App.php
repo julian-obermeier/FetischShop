@@ -209,6 +209,7 @@ final class App
             $router->post('/admin/angebote/{id}/vorlage', [$admin, 'saveOfferTemplate'], [$csrf, $adminOnly]);
             $router->get('/admin/angebotsvorlagen', [$admin, 'offerTemplates'], [$adminOnly]);
             $router->post('/admin/angebotsvorlagen/{id}/verwenden', [$admin, 'useOfferTemplate'], [$csrf, $adminOnly]);
+            $router->get('/admin/auftraege', [$adminOrders, 'index'], [$adminOnly]);
             $router->get('/admin/auftraege/{id}', [$adminOrders, 'show'], [$adminOnly]);
             $router->post('/admin/auftraege/{id}/vorab-freigeben', [$adminOrders, 'approvePrecheck'], [$csrf, $adminOnly]);
             $router->post('/admin/auftraege/{id}/nachweise/{evidenceId}/pruefen', [$adminOrders, 'reviewEvidence'], [$csrf, $adminOnly]);

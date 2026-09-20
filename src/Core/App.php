@@ -35,7 +35,7 @@ final class App{
    $adminAuth=new AdminAuthController($this->root,$db,$auth);
    $admin=new AdminController($this->root,$db,$auth);
    $orders=new OrderController($this->root,$db,$auth);
-   $adminOrders=new AdminOrderController($this->root,$db,$auth);\n   $media=new MediaController($this->root,$db,$auth);\n   $profile=new SellerProfileController($this->root,$db,$auth);\n   $adminSellers=new AdminSellerController($this->root,$db,$auth);
+   $adminOrders=new AdminOrderController($this->root,$db,$auth);\n   $media=new MediaController($this->root,$db,$auth);\n   $profile=new SellerProfileController($this->root,$db,$auth);\n   $adminSellers=new AdminSellerController($this->root,$db,$auth);\n   $sellerWork=new SellerWorkController($this->root,$db,$auth);\n   $adminWork=new AdminWorkController($this->root,$db,$auth);\n   $adminTasks=new AdminTaskController($this->root,$db);
 
    $router->get('/media/evidence/{id}',[$media,'evidence']);\n\n   $router->get('/',[$public,'home']);
    $router->get('/angebote',[$public,'offers']);
@@ -68,13 +68,13 @@ final class App{
    $router->get('/konto/auftraege/{id}',[$orders,'show'],[$verifiedSeller]);
    $router->post('/konto/auftraege/{id}/artikel',[$orders,'saveItem'],[$csrf,$verifiedSeller]);
    $router->post('/konto/auftraege/{id}/nachweis',[$orders,'uploadEvidence'],[$csrf,$verifiedSeller]);
-   $router->post('/konto/auftraege/{id}/chat',[$orders,'sendChat'],[$csrf,$verifiedSeller]);
+   $router->post('/konto/auftraege/{id}/chat',[$orders,'sendChat'],[$csrf,$verifiedSeller]);\n   $router->post('/konto/auftraege/{id}/spontan',[$sellerWork,'spontaneous'],[$csrf,$verifiedSeller]);\n   $router->post('/konto/auftraege/{id}/aufgaben/{executionId}',[$sellerWork,'submitTask'],[$csrf,$verifiedSeller]);\n   $router->post('/konto/auftraege/{id}/beschaedigung',[$sellerWork,'reportDamage'],[$csrf,$verifiedSeller]);\n   $router->post('/konto/auftraege/{id}/beschaedigung/nachforderung/{requestId}',[$sellerWork,'damageResponse'],[$csrf,$verifiedSeller]);
 
    $router->get('/admin/login',[$adminAuth,'loginForm']);
    $router->post('/admin/login',[$adminAuth,'login'],[$csrf]);
    $router->post('/admin/logout',[$adminAuth,'logout'],[$csrf,$adminOnly]);
    $router->get('/admin',[$admin,'dashboard'],[$adminOnly]);
-   $router->get('/admin/verkaeuferinnen',[$adminSellers,'index'],[$adminOnly]);\n   $router->get('/admin/verkaeuferinnen/{id}',[$adminSellers,'show'],[$adminOnly]);\n   $router->post('/admin/verkaeuferinnen/{id}',[$adminSellers,'update'],[$csrf,$adminOnly]);\n   $router->post('/admin/verkaeuferinnen/{id}/loeschen',[$adminSellers,'delete'],[$csrf,$adminOnly]);\n   $router->get('/admin/kategorien',[$admin,'categories'],[$adminOnly]);
+   $router->get('/admin/verkaeuferinnen',[$adminSellers,'index'],[$adminOnly]);\n   $router->get('/admin/verkaeuferinnen/{id}',[$adminSellers,'show'],[$adminOnly]);\n   $router->post('/admin/verkaeuferinnen/{id}',[$adminSellers,'update'],[$csrf,$adminOnly]);\n   $router->post('/admin/verkaeuferinnen/{id}/loeschen',[$adminSellers,'delete'],[$csrf,$adminOnly]);\n   $router->get('/admin/aufgaben',[$adminTasks,'index'],[$adminOnly]);\n   $router->post('/admin/aufgaben',[$adminTasks,'save'],[$csrf,$adminOnly]);\n   $router->get('/admin/kategorien',[$admin,'categories'],[$adminOnly]);
    $router->post('/admin/kategorien',[$admin,'createCategory'],[$csrf,$adminOnly]);
    $router->post('/admin/kategorien/{id}',[$admin,'updateCategory'],[$csrf,$adminOnly]);
    $router->post('/admin/kategorien/{id}/duplizieren',[$admin,'duplicateCategory'],[$csrf,$adminOnly]);
@@ -89,7 +89,7 @@ final class App{
    $router->post('/admin/auftraege/{id}/nachweise/{evidenceId}/pruefen',[$adminOrders,'reviewEvidence'],[$csrf,$adminOnly]);
    $router->post('/admin/auftraege/{id}/verstoesse/{violationId}',[$adminOrders,'decideViolation'],[$csrf,$adminOnly]);
    $router->post('/admin/auftraege/{id}/zusatztage',[$adminOrders,'addManualDay'],[$csrf,$adminOnly]);
-   $router->post('/admin/auftraege/{id}/chat',[$adminOrders,'sendChat'],[$csrf,$adminOnly]);
+   $router->post('/admin/auftraege/{id}/chat',[$adminOrders,'sendChat'],[$csrf,$adminOnly]);\n   $router->post('/admin/auftraege/{id}/spontan',[$adminWork,'spontaneous'],[$csrf,$adminOnly]);\n   $router->post('/admin/auftraege/{id}/aufgabe',[$adminWork,'addTask'],[$csrf,$adminOnly]);\n   $router->post('/admin/auftraege/{id}/aufgaben/{executionId}/pruefen',[$adminWork,'reviewTask'],[$csrf,$adminOnly]);\n   $router->post('/admin/auftraege/{id}/beschaedigung/{caseId}/nachfordern',[$adminWork,'requestDamageEvidence'],[$csrf,$adminOnly]);\n   $router->post('/admin/auftraege/{id}/beschaedigung/{caseId}/entscheiden',[$adminWork,'decideDamage'],[$csrf,$adminOnly]);
 
    $router->dispatch($request);
   }catch(\Throwable $e){

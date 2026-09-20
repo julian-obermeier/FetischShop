@@ -324,6 +324,18 @@ final class OrderService
         }
     }
 
+    public function initializePrechecksForRun(int $orderId, int $runId): void
+    {
+        $q = $this->db->prepare("SELECT oc.*,c.name category_name FROM order_components oc JOIN categories c ON c.id=oc.category_id WHERE oc.order_id=? AND oc.component_type='physical' ORDER BY oc.sort_order,oc.id");
+        $q->execute([$orderId]);
+
+        foreach ($q->fetchAll() as $component) {
+            $config = json_decode($component['config_json'] ?: '[]', true) ?: [];
+            $this->createPrecheckRequirements($orderId, $runId, (int) $component['id'], (string) $component['category_name'], $config);
+            $this->db->prepare("UPDATE order_components SET status='preparation',updated_at=NOW() WHERE id=?")->execute([$component['id']]);
+        }
+    }
+
     private function instantiateOfferTasks(int $orderId, int $offerVersionId, DateTimeImmutable $start): void
     {
         $q = $this->db->prepare('SELECT * FROM offer_tasks WHERE offer_version_id=? ORDER BY sort_order,id');

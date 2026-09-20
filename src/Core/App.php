@@ -19,6 +19,7 @@ use App\Http\Controllers\SellerOfferController;
 use App\Http\Controllers\PayoutController;
 use App\Http\Controllers\UpdaterController;
 use App\Http\Controllers\ShippingController;
+use App\Http\Controllers\DigitalController;
 
 final class App
 {
@@ -90,8 +91,10 @@ final class App
             $payouts = new PayoutController($this->root, $db, $auth);
             $updater = new UpdaterController($this->root, $db);
             $shipping = new ShippingController($this->root, $db, $auth);
+            $digital = new DigitalController($this->root, $db, $auth);
 
             $router->get('/media/evidence/{id}', [$media, 'evidence']);
+            $router->get('/media/digital/{id}', [$media, 'digital']);
 
             $router->get('/', [$public, 'home']);
             $router->get('/angebote', [$public, 'offers']);
@@ -137,6 +140,8 @@ final class App
             $router->post('/konto/auftraege/{id}/beschaedigung', [$sellerWork, 'reportDamage'], [$csrf, $verifiedSeller]);
             $router->post('/konto/auftraege/{id}/beschaedigung/nachforderung/{requestId}', [$sellerWork, 'damageResponse'], [$csrf, $verifiedSeller]);
             $router->post('/konto/auftraege/{id}/versand/{stepId}', [$shipping, 'sellerStep'], [$csrf, $verifiedSeller]);
+            $router->post('/konto/auftraege/{id}/digital/{componentId}/upload', [$digital, 'upload'], [$csrf, $verifiedSeller]);
+            $router->post('/konto/auftraege/{id}/digital/{componentId}/einreichen', [$digital, 'submit'], [$csrf, $verifiedSeller]);
 
             $router->get('/admin/login', [$adminAuth, 'loginForm']);
             $router->post('/admin/login', [$adminAuth, 'login'], [$csrf]);
@@ -178,6 +183,8 @@ final class App
             $router->post('/admin/auftraege/{id}/versand/start', [$shipping, 'start'], [$csrf, $adminOnly]);
             $router->post('/admin/auftraege/{id}/wareneingang', [$shipping, 'received'], [$csrf, $adminOnly]);
             $router->post('/admin/auftraege/{id}/abschlusspruefung', [$shipping, 'finalReview'], [$csrf, $adminOnly]);
+            $router->post('/admin/auftraege/{id}/digital/{componentId}/pruefen', [$digital, 'review'], [$csrf, $adminOnly]);
+            $router->post('/admin/auftraege/{id}/revision/{itemId}', [$digital, 'revisionItem'], [$csrf, $adminOnly]);
 
             $router->dispatch($request);
         } catch (\Throwable $e) {

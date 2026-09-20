@@ -1,0 +1,4 @@
+<main class="section"><div class="section-head"><div><span class="eyebrow">System</span><h1>Updates & Migrationen</h1></div><a class="btn ghost" href="/admin">Zurück</a></div>
+<div class="card"><h2>Version <?=App\Core\View::e($version)?></h2><p>Vor schemaändernden Updates sollte extern über das Hosting ein Backup erstellt werden.</p>
+<?php if($pending):?><p><b>Ausstehend:</b> <?=App\Core\View::e(implode(', ',$pending))?></p><form method="post" action="/admin/system/update"><?=App\Core\Csrf::field()?><button class="btn">Migrationen ausführen</button></form><?php else:?><p>Die Datenbank ist auf dem aktuellen Migrationsstand.</p><?php endif;?></div>
+<h2>Updatehistorie</h2><div class="worklist"><?php foreach($history as $h):?><div class="work-row"><div><b><?=App\Core\View::e($h['migration'])?></b><span><?=date('d.m.Y H:i',strtotime($h['executed_at']))?></span></div></div><?php endforeach;?></div></main>

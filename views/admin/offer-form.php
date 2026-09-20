@@ -28,7 +28,7 @@ if(!$steps && !$offer)$steps=[
 ];
 ?>
 <main class="section narrow">
-<div class="admin-page-intro"><div><span class="eyebrow">Angebotsverwaltung</span><h1><?=$offer?'Angebot bearbeiten':'Neues Angebot'?></h1><p>Alle Einstellungen werden über normale Eingabefelder verwaltet. Beim Speichern entsteht eine unveränderliche Angebotsversion.</p></div><div class="actions"><a class="btn ghost" href="/admin/angebote">Zurück zu Angeboten</a></div></div>
+<div class="admin-page-intro"><div><span class="eyebrow">Angebotsverwaltung</span><h1><?=$offer?'Angebot bearbeiten':'Neues Angebot'?></h1><p>Lege das Angebot Schritt für Schritt fest. Bei jedem Speichern wird eine neue, nachvollziehbare Version erstellt.</p></div><div class="actions"><a class="btn ghost" href="/admin/angebote">Zurück zu Angeboten</a></div></div>
 
 <?php if($offer):?>
 <div class="notice">Bereits angenommene Aufträge behalten immer die damals gültige Version. Änderungen wirken nur auf neue Annahmen.</div>
@@ -38,7 +38,7 @@ if(!$steps && !$offer)$steps=[
 <form method="post" class="admin-form form-grid"><?=App\Core\Csrf::field()?>
 
 <section class="card full settings-section">
-<h2>1. Grunddaten</h2>
+<h2>1. Angebot & Vergütung</h2>
 <div class="form-grid">
 <label class="full">Titel<input name="title" value="<?=App\Core\View::e($offer['title']??'')?>" required></label>
 <label>Kategorie<select name="category_id" required><?php foreach($categories as $c):?><option value="<?=$c['id']?>" <?=((string)($offer['category_id']??'')===(string)$c['id'])?'selected':''?>><?=App\Core\View::e($c['name'])?><?=$c['is_digital']?' · digital':''?></option><?php endforeach;?></select></label>
@@ -54,7 +54,7 @@ if(!$steps && !$offer)$steps=[
 <section class="card full settings-section">
 <h2>2. Privatangebot</h2>
 <div class="form-grid">
-<label class="check full"><input type="checkbox" name="is_private" value="1" <?=!empty($offer['is_private'])?'checked':''?>><span>Dieses Angebot ist nur für eine bestimmte Verkäuferin bestimmt.</span></label>
+<label class="check full"><input type="checkbox" name="is_private" value="1" <?=!empty($offer['is_private'])?'checked':''?>><span>Aktiviere diese Option, wenn das Angebot ausschließlich für eine bestimmte Verkäuferin sichtbar sein soll.</span></label>
 <label class="full">Verkäuferin<select name="seller_id"><option value="">Keine feste Verkäuferin</option><?php foreach($sellers as $s):?><option value="<?=$s['id']?>" <?=((string)($offer['seller_id']??'')===(string)$s['id'])?'selected':''?>><?=App\Core\View::e($s['last_name'].', '.$s['first_name'].' · '.$s['email'])?></option><?php endforeach;?></select></label>
 <label>Annahmefrist<input name="acceptance_deadline" type="datetime-local" value="<?=!empty($offer['acceptance_deadline'])?date('Y-m-d\TH:i',strtotime($offer['acceptance_deadline'])):''?>"></label>
 <?php if($offer&&!empty($offer['is_private'])): $privateLabels=['pending'=>'Offen','accepted'=>'Angenommen','declined'=>'Abgelehnt','expired'=>'Abgelaufen'];?>
@@ -63,16 +63,16 @@ if(!$steps && !$offer)$steps=[
 </div>
 </section>
 <?php if($offer&&!empty($offer['is_private'])&&in_array($offer['private_offer_status']??'',['declined','expired'],true)):?>
-<section class="card full admin-form settings-section"><h3>Privatangebot erneut freigeben</h3><p class="muted">Setzt den Privatstatus wieder auf „Offen“, löscht einen alten Ablehnungsgrund und aktiviert das Angebot mit einer neuen Annahmefrist.</p><form method="post" action="/admin/angebote/<?=$offer['id']?>/privat-erneut-freigeben" class="form-grid"><?=App\Core\Csrf::field()?><label class="full">Neue Annahmefrist<input type="datetime-local" name="acceptance_deadline" required></label><button class="btn primary full">Privatangebot erneut freigeben</button></form></section>
+<section class="card full admin-form settings-section"><h3>Privatangebot erneut freigeben</h3><p class="muted">Öffnet ein zuvor abgelehntes oder abgelaufenes Privatangebot erneut und setzt eine neue Annahmefrist.</p><form method="post" action="/admin/angebote/<?=$offer['id']?>/privat-erneut-freigeben" class="form-grid"><?=App\Core\Csrf::field()?><label class="full">Neue Annahmefrist<input type="datetime-local" name="acceptance_deadline" required></label><button class="btn primary full">Privatangebot erneut freigeben</button></form></section>
 <?php endif;?>
 
 <section class="card full settings-section">
 <h2>3. Regeln</h2>
-<label class="full">Regeln – eine Regel pro Zeile<textarea name="rules_text" rows="7" placeholder="Artikel darf während der Durchführung nicht gewechselt werden.&#10;Nachweise müssen innerhalb des jeweiligen Zeitfensters eingereicht werden."><?=App\Core\View::e($ruleText)?></textarea><small class="field-help">Du schreibst einfach normale Sätze. Jede Zeile wird als eigene Regel gespeichert.</small></label>
+<label class="full">Regeln – eine Regel pro Zeile<textarea name="rules_text" rows="7" placeholder="Artikel darf während der Durchführung nicht gewechselt werden.&#10;Nachweise müssen innerhalb des jeweiligen Zeitfensters eingereicht werden."><?=App\Core\View::e($ruleText)?></textarea><small class="field-help">Eine Regel pro Zeile. Die Verkäuferin sieht diese Regeln vor der Annahme.</small></label>
 </section>
 
 <section class="card full settings-section">
-<div class="repeater-head"><div><h2>4. Nachweisfenster</h2><p class="muted">Wann und wie viele Pflichtaufnahmen pro Durchführungstag verlangt werden.</p></div><button type="button" class="btn" data-add-row="tpl-evidence-window" data-target="#evidence-windows">Nachweisfenster hinzufügen</button></div>
+<div class="repeater-head"><div><h2>4. Nachweisfenster</h2><p class="muted">Lege fest, zu welchen Zeiten Nachweise verlangt werden und wie viele Aufnahmen einzureichen sind.</p></div><button type="button" class="btn" data-add-row="tpl-evidence-window" data-target="#evidence-windows">Nachweisfenster hinzufügen</button></div>
 <div class="structured-list" id="evidence-windows">
 <?php foreach($windows as $w):?>
 <div class="structured-row" data-repeat-row>
@@ -88,7 +88,7 @@ if(!$steps && !$offer)$steps=[
 </section>
 
 <section class="card full settings-section">
-<div class="repeater-head"><div><h2>5. Vorabkontrolle</h2><p class="muted">Pflichtperspektiven vor dem eigentlichen Start. Wenn du nichts einträgst, verwendet das System passende Standardperspektiven je Kategorie.</p></div><button type="button" class="btn" data-add-row="tpl-precheck" data-target="#precheck-list">Perspektive hinzufügen</button></div>
+<div class="repeater-head"><div><h2>5. Vorabkontrolle</h2><p class="muted">Definiere die Startaufnahmen vor der Durchführung. Ohne eigene Vorgabe werden die Standardperspektiven der Kategorie verwendet.</p></div><button type="button" class="btn" data-add-row="tpl-precheck" data-target="#precheck-list">Perspektive hinzufügen</button></div>
 <div class="structured-list" id="precheck-list">
 <?php foreach($prechecks as $pr):?>
 <div class="structured-row" data-repeat-row>
@@ -105,7 +105,7 @@ if(!$steps && !$offer)$steps=[
 <section class="card full settings-section">
 <h2>6. Versandhinweise</h2>
 <label class="full">Allgemeine Hinweise zum Versand<textarea name="shipping_notes" rows="4" placeholder="Zum Beispiel: neutral verpacken, keine zusätzliche Reinigung, Versand erst nach Freigabe."><?=App\Core\View::e($shippingCfg['instructions']??'')?></textarea></label>
-<div class="repeater-head"><div><h3>Versandschritte</h3><p class="muted">Diese Schritte werden der Verkäuferin nacheinander angezeigt.</p></div><button type="button" class="btn" data-add-row="tpl-shipping-step" data-target="#shipping-steps">Versandschritt hinzufügen</button></div>
+<div class="repeater-head"><div><h3>Versandschritte</h3><p class="muted">Die Verkäuferin arbeitet diese Schritte später in genau dieser Reihenfolge ab.</p></div><button type="button" class="btn" data-add-row="tpl-shipping-step" data-target="#shipping-steps">Versandschritt hinzufügen</button></div>
 <div class="structured-list" id="shipping-steps">
 <?php foreach($steps as $st):?>
 <div class="structured-row" data-repeat-row>
@@ -123,13 +123,13 @@ if(!$steps && !$offer)$steps=[
 <h2>7. Verstöße und Verlängerungen</h2>
 <div class="form-grid">
 <label>Digitale Fristverstöße<select name="digital_violation_mode"><option value="extension" <?=($violationCfg['digital_violation_mode']??'extension')==='extension'?'selected':''?>>Frist um einen Tag verlängern</option><option value="log_only" <?=($violationCfg['digital_violation_mode']??'extension')==='log_only'?'selected':''?>>Nur dokumentieren</option></select></label>
-<label>Physische Verstöße<input value="+1 unbezahlter Tag je bestätigtem Verstoß" readonly><small class="field-help">Die Verlängerung wird nur dem betroffenen Bestandteil zugeordnet.</small></label>
+<label>Physische Verstöße<input value="+1 unbezahlter Tag je bestätigtem Verstoß" readonly><small class="field-help">Bestätigte Verstöße und daraus entstehende Verlängerungen werden dem betroffenen Bestandteil zugeordnet.</small></label>
 <label class="full">Interne Hinweise zur Verstoßbehandlung<textarea name="violation_notes" rows="3"><?=App\Core\View::e($violationCfg['notes']??'')?></textarea></label>
 </div>
 </section>
 
 <section class="card full settings-section">
-<div class="repeater-head"><div><h2>8. Zusatzoptionen</h2><p class="muted">Frei wählbare Zusatzleistungen oder Bedingungen mit eigener Vergütung.</p></div><button type="button" class="btn" data-add-row="tpl-option" data-target="#option-list-admin">Option hinzufügen</button></div>
+<div class="repeater-head"><div><h2>8. Zusatzoptionen</h2><p class="muted">Optionale Zusatzleistungen mit eigener Beschreibung und Vergütung.</p></div><button type="button" class="btn" data-add-row="tpl-option" data-target="#option-list-admin">Option hinzufügen</button></div>
 <div class="structured-list" id="option-list-admin">
 <?php foreach($options as $op): $req=$decode($op['requirements_json']??null);?>
 <div class="structured-row" data-repeat-row>
@@ -145,7 +145,7 @@ if(!$steps && !$offer)$steps=[
 </section>
 
 <section class="card full settings-section">
-<div class="repeater-head"><div><h2>9. Kombi-Bestandteile</h2><p class="muted">Nur nötig, wenn ein Angebot aus mehreren physischen oder digitalen Bestandteilen besteht. Ohne Eintrag verwendet das System die Hauptkategorie des Angebots.</p></div><button type="button" class="btn" data-add-row="tpl-component" data-target="#component-list">Bestandteil hinzufügen</button></div>
+<div class="repeater-head"><div><h2>9. Kombi-Bestandteile</h2><p class="muted">Nur für Kombi-Aufträge erforderlich. Ohne Eintrag besteht der Auftrag aus der Hauptkategorie des Angebots.</p></div><button type="button" class="btn" data-add-row="tpl-component" data-target="#component-list">Bestandteil hinzufügen</button></div>
 <div class="structured-list" id="component-list">
 <?php foreach($components as $co): $cfg=$decode($co['config_json']??null);$digital=$cfg['digital']??[];?>
 <div class="structured-row" data-repeat-row>
@@ -169,7 +169,7 @@ if(!$steps && !$offer)$steps=[
 </section>
 
 <section class="card full settings-section">
-<div class="repeater-head"><div><h2>10. Vorgeplante Zusatzaufgaben</h2><p class="muted">Aufgaben, die beim Start des Auftrags automatisch eingeplant werden.</p></div><button type="button" class="btn" data-add-row="tpl-offer-task" data-target="#offer-task-list">Aufgabe hinzufügen</button></div>
+<div class="repeater-head"><div><h2>10. Vorgeplante Zusatzaufgaben</h2><p class="muted">Diese Zusatzaufgaben werden beim Start automatisch in den Auftrag übernommen.</p></div><button type="button" class="btn" data-add-row="tpl-offer-task" data-target="#offer-task-list">Aufgabe hinzufügen</button></div>
 <div class="structured-list" id="offer-task-list">
 <?php foreach($offerTasks as $task): $cfg=$decode($task['config_json']??null);?>
 <div class="structured-row" data-repeat-row>

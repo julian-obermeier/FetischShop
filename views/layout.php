@@ -42,7 +42,7 @@ function sellerNavActive(string $currentPath, string $href): string {
 <?php if($isAdmin):?>
 <div class="admin-shell">
 <aside class="admin-sidebar" id="admin-sidebar">
-<div class="admin-brand"><a href="/admin">Fetisch<span>Shop</span></a><small>Administration</small></div>
+<div class="admin-brand"><a href="/admin">Fetisch<span>Shop</span></a><small>Verwaltung</small></div>
 <nav class="admin-sidebar-nav">
 <div class="admin-nav-group"><span class="admin-nav-label">Arbeitszentrale</span>
 <a class="admin-nav-link<?=adminNavActive($currentPath,'/admin')?>" href="/admin"><span>⌂</span>Übersicht</a>
@@ -78,7 +78,7 @@ function sellerNavActive(string $currentPath, string $href): string {
 <div class="admin-main">
 <header class="admin-topbar">
 <button class="admin-menu-toggle" type="button" data-admin-menu aria-label="Menü öffnen">☰</button>
-<div><b><?=View::e($pageTitle)?></b><small>FetischShop Verwaltung</small></div>
+<div><b><?=View::e($pageTitle)?></b><small>Verwaltung & Auftragssteuerung</small></div>
 <form class="admin-search" action="/admin/suche" method="get"><input type="search" name="q" placeholder="Auftrag, E-Mail, Angebot, Tracking …"><button type="submit">Suchen</button></form>
 </header>
 <?php if($m=Session::pullFlash('success')):?><div class="flash success"><?=View::e($m)?></div><?php endif;?>
@@ -89,23 +89,23 @@ function sellerNavActive(string $currentPath, string $href): string {
 <?php elseif($isSellerArea):?>
 <div class="seller-shell">
 <aside class="seller-sidebar" id="seller-sidebar">
-<div class="seller-brand"><a href="/konto">Fetisch<span>Shop</span></a><small>Mein Bereich</small></div>
+<div class="seller-brand"><a href="/konto">Fetisch<span>Shop</span></a><small>Verkäuferinnen-Bereich</small></div>
 <nav class="seller-sidebar-nav">
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto')?>" href="/konto"><span>⌂</span>Übersicht</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/auftraege')?>" href="/konto/auftraege"><span>▥</span>Meine Aufträge</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/fristen')?>" href="/konto/fristen"><span>◷</span><span class="seller-nav-text">Fristen & Kalender</span><?php if($sellerUrgent>0):?><em class="seller-nav-badge warn"><?=$sellerUrgent>99?'99+':$sellerUrgent?></em><?php endif;?></a>
-<a class="seller-nav-link<?=str_starts_with($currentPath,'/angebote')?' active':''?>" href="/angebote"><span>◆</span>Neue Angebote</a>
-<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/wallet')?>" href="/konto/wallet"><span>€</span>Wallet & Auszahlung</a>
+<a class="seller-nav-link<?=str_starts_with($currentPath,'/angebote')?' active':''?>" href="/angebote"><span>◆</span>Angebote</a>
+<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/wallet')?>" href="/konto/wallet"><span>€</span>Wallet</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/benachrichtigungen')?>" href="/konto/benachrichtigungen"><span>●</span><span class="seller-nav-text">Benachrichtigungen</span><?php if($sellerUnread>0):?><em class="seller-nav-badge"><?=$sellerUnread>99?'99+':$sellerUnread?></em><?php endif;?></a>
 <a class="seller-nav-link<?=($currentPath==='/kontakt'||str_starts_with($currentPath,'/konto/support'))?' active':''?>" href="/konto/support"><span>?</span><span class="seller-nav-text">Support</span></a>
-<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/profil')?>" href="/konto/profil"><span>♙</span>Mein Profil</a>
+<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/profil')?>" href="/konto/profil"><span>♙</span>Profil & Konto</a>
 </nav>
 <div class="seller-sidebar-foot"><form method="post" action="/logout"><?=App\Core\Csrf::field()?><button type="submit">Abmelden</button></form></div>
 </aside>
 <div class="seller-main">
 <header class="seller-topbar">
 <button class="seller-menu-toggle" type="button" data-seller-menu aria-label="Menü öffnen">☰</button>
-<div><b><?=View::e($pageTitle)?></b><small>Mein Verkäuferinnen-Bereich</small></div>
+<div><b><?=View::e($pageTitle)?></b><small>Aufträge, Fristen & Auszahlung</small></div>
 <a class="seller-top-alert<?=sellerNavActive($currentPath,'/konto/benachrichtigungen')?>" href="/konto/benachrichtigungen" aria-label="Benachrichtigungen"><span>●</span><?php if($sellerUnread>0):?><em><?=$sellerUnread>99?'99+':$sellerUnread?></em><?php endif;?></a>
 <a class="seller-top-offer" href="/angebote">Angebote ansehen</a>
 </header>
@@ -121,11 +121,11 @@ function sellerNavActive(string $currentPath, string $href): string {
 </nav>
 </div></div>
 <?php else:?>
-<header class="site-header"><a class="brand" href="/">Fetisch<span>Shop</span></a><nav><a href="/angebote">Angebote</a><a href="/so-funktioniert-es">Ablauf</a><a href="/faq">FAQ</a><?php if(Session::get('seller_id')):?><a href="/konto">Mein Bereich</a><?php else:?><a href="/login">Login</a><?php endif;?></nav></header>
+<header class="site-header"><a class="brand" href="/">Fetisch<span>Shop</span></a><nav><a href="/angebote">Angebote</a><a href="/so-funktioniert-es">So funktioniert's</a><a href="/faq">Hilfe</a><?php if(Session::get('seller_id')):?><a href="/konto">Mein Bereich</a><?php else:?><a href="/login">Anmelden</a><?php endif;?></nav></header>
 <?php if($m=Session::pullFlash('success')):?><div class="flash success"><?=View::e($m)?></div><?php endif;?>
 <?php if($m=Session::pullFlash('error')):?><div class="flash danger"><?=View::e($m)?></div><?php endif;?>
 <?php require $contentView;?>
-<footer class="site-footer"><div><strong>FetischShop</strong><p>Diskrete Ankaufsplattform für volljährige Verkäuferinnen.</p></div><nav><a href="/regeln">Regeln</a><a href="/kontakt">Kontakt</a><a href="/impressum">Impressum</a><a href="/datenschutz">Datenschutz</a><a href="/bedingungen">Bedingungen</a></nav></footer>
+<footer class="site-footer"><div><strong>FetischShop</strong><p>Klare Aufträge, nachvollziehbare Abläufe und direkte Vergütung.</p></div><nav><a href="/regeln">Plattformregeln</a><a href="/kontakt">Support</a><a href="/bedingungen">Bedingungen</a></nav></footer>
 <?php endif;?>
 <script src="/assets/app.js?v=<?=View::e($assetVersion)?>" defer></script>
 </body>

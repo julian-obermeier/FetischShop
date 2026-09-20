@@ -3,6 +3,8 @@ namespace App\Http\Controllers;
 
 use App\Core\Auth;
 use App\Core\Request;
+use App\Core\Response;
+use App\Core\Session;
 use App\Core\View;
 use App\Services\SellerScheduleService;
 use PDO;
@@ -141,16 +143,56 @@ final class SellerController
         ]);
     }
 
-    public function orders(): void
+    public function orders(Request $r): void
     {
         $s = $this->auth->seller();
-        $q = $this->db->prepare("SELECT o.*,ov.title,
+        $term = trim((string)$r->input('q'));
+        $filter = (string)$r->input('filter','all');
+        if (!in_array($filter,['all','active','payout','archive'],true)) {
+            $filter='all';
+        }
+
+        $where=['o.seller_id=?'];
+        $params=[(int)$s['id']];
+
+        if ($term !== '') {
+            $where[]='(o.order_number LIKE ? OR ov.title LIKE ?)';
+            $like='%'.$term.'%';
+            $params[]=$like;
+            $params[]=$like;
+        }
+
+        if ($filter==='active') {
+            $where[]="o.status NOT IN('completed','rejected','archived','cancelled','paid')";
+        } elseif ($filter==='payout') {
+            $where[]="o.phase='payout' OR o.status='completed'";
+        } elseif ($filter==='archive') {
+            $where[]="o.status IN('rejected','archived','cancelled','paid') OR o.phase='archive'";
+        }
+
+        $sql="SELECT o.*,ov.title,
             (SELECT COUNT(*) FROM order_components oc WHERE oc.order_id=o.id) component_count
             FROM orders o
             JOIN offer_versions ov ON ov.id=o.offer_version_id
-            WHERE o.seller_id=? ORDER BY o.created_at DESC");
-        $q->execute([$s['id']]);
-        View::render($this->root, 'seller/orders', ['pageTitle' => 'Meine Aufträge', 'orders' => $q->fetchAll()]);
+            WHERE ".implode(' AND ',$where)." ORDER BY o.created_at DESC";
+        $q=$this->db->prepare($sql);
+        $q->execute($params);
+
+        $countsQ=$this->db->prepare("SELECT
+            COUNT(*) total,
+            SUM(status NOT IN('completed','rejected','archived','cancelled','paid')) active_count,
+            SUM(phase='payout' OR status='completed') payout_count,
+            SUM(status IN('rejected','archived','cancelled','paid') OR phase='archive') archive_count
+            FROM orders WHERE seller_id=?");
+        $countsQ->execute([$s['id']]);
+
+        View::render($this->root,'seller/orders',[
+            'pageTitle'=>'Meine Aufträge',
+            'orders'=>$q->fetchAll(),
+            'filterTerm'=>$term,
+            'filterMode'=>$filter,
+            'counts'=>$countsQ->fetch() ?: [],
+        ]);
     }
 
     public function schedule(Request $r): void
@@ -210,12 +252,38 @@ final class SellerController
         View::render($this->root,'seller/wallet',['pageTitle'=>'Wallet','wallet'=>$wallet,'entries'=>$e->fetchAll()]);
     }
 
-    public function notifications(): void
+    public function notifications(Request $r): void
     {
         $s=$this->auth->seller();
-        $q=$this->db->prepare('SELECT * FROM notifications WHERE seller_id=? ORDER BY created_at DESC LIMIT 100');$q->execute([$s['id']]);
-        $rows=$q->fetchAll();
-        $this->db->prepare('UPDATE notifications SET read_at=COALESCE(read_at,NOW()) WHERE seller_id=?')->execute([$s['id']]);
-        View::render($this->root,'seller/notifications',['pageTitle'=>'Benachrichtigungen','notifications'=>$rows]);
+        $filter=(string)$r->input('filter','all');
+        if(!in_array($filter,['all','unread'],true))$filter='all';
+        $sql='SELECT * FROM notifications WHERE seller_id=?'.($filter==='unread'?' AND read_at IS NULL':'').' ORDER BY created_at DESC LIMIT 150';
+        $q=$this->db->prepare($sql);$q->execute([$s['id']]);
+        $unreadQ=$this->db->prepare('SELECT COUNT(*) FROM notifications WHERE seller_id=? AND read_at IS NULL');$unreadQ->execute([$s['id']]);
+        View::render($this->root,'seller/notifications',[
+            'pageTitle'=>'Benachrichtigungen',
+            'notifications'=>$q->fetchAll(),
+            'filterMode'=>$filter,
+            'unreadCount'=>(int)$unreadQ->fetchColumn(),
+        ]);
+    }
+
+    public function markNotificationRead(Request $r,array $p): void
+    {
+        $s=$this->auth->seller();
+        $id=(int)$p['id'];
+        $q=$this->db->prepare('UPDATE notifications SET read_at=COALESCE(read_at,NOW()) WHERE id=? AND seller_id=?');
+        $q->execute([$id,$s['id']]);
+        $redirect=trim((string)$r->input('redirect'));
+        if($redirect!=='' && str_starts_with($redirect,'/'))Response::redirect($redirect);
+        Response::redirect('/konto/benachrichtigungen');
+    }
+
+    public function markAllNotificationsRead(): void
+    {
+        $s=$this->auth->seller();
+        $this->db->prepare('UPDATE notifications SET read_at=COALESCE(read_at,NOW()) WHERE seller_id=? AND read_at IS NULL')->execute([$s['id']]);
+        Session::flash('success','Alle Benachrichtigungen wurden als gelesen markiert.');
+        Response::redirect('/konto/benachrichtigungen');
     }
 }

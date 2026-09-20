@@ -3,9 +3,9 @@ $statusLabels=['draft'=>'Entwurf','active'=>'Aktiv','disabled'=>'Deaktiviert'];
 $privateLabels=['pending'=>'Offen','accepted'=>'Angenommen','declined'=>'Abgelehnt','expired'=>'Abgelaufen'];
 ?>
 <main class="section">
-<div class="admin-page-intro"><div><span class="eyebrow">Ankauf</span><h1>Angebote</h1><p>Öffentliche und private Angebote inklusive Version, Ziel-Verkäuferin und Annahmestatus.</p></div><div class="actions"><a class="btn" href="/admin/angebotsvorlagen">Vorlagen</a><a class="btn primary" href="/admin/angebote/neu">Neues Angebot</a></div></div>
+<div class="admin-page-intro"><div><span class="eyebrow">Angebotsverwaltung</span><h1>Ankaufangebote</h1><p>Öffentliche Angebote, Privatangebote und ihre aktuelle Version zentral verwalten.</p></div><div class="actions"><a class="btn" href="/admin/angebotsvorlagen">Vorlagen</a><a class="btn primary" href="/admin/angebote/neu">Neues Angebot</a></div></div>
 
-<div class="table-wrap"><table><thead><tr><th>Titel</th><th>Kategorie</th><th>Vergütung</th><th>Verfügbarkeit</th><th>Privatstatus</th><th>Version</th><th></th></tr></thead><tbody>
+<div class="table-wrap"><table><thead><tr><th>Titel</th><th>Kategorie</th><th>Vergütung</th><th>Status</th><th>Privatangebot</th><th>Version</th><th></th></tr></thead><tbody>
 <?php foreach($offers as $o):?><tr>
 <td><strong><?=App\Core\View::e($o['title'])?></strong><?php if($o['is_private']):?><small>Privatangebot</small><?php else:?><small>Öffentliches Angebot</small><?php endif;?></td>
 <td><?=App\Core\View::e($o['category_name'])?></td>
@@ -15,5 +15,5 @@ $privateLabels=['pending'=>'Offen','accepted'=>'Angenommen','declined'=>'Abgeleh
 <td>v<?= (int)$o['version_no'] ?></td>
 <td><a class="btn" href="/admin/angebote/<?=$o['id']?>/bearbeiten">Bearbeiten</a></td>
 </tr><?php endforeach;?>
-</tbody></table><?php if(!$offers):?><div class="empty">Noch keine Angebote vorhanden.</div><?php endif;?></div>
+</tbody></table><?php if(!$offers):?><div class="empty">Es wurden noch keine Angebote angelegt.</div><?php endif;?></div>
 </main>

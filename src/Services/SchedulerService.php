@@ -20,6 +20,7 @@ final class SchedulerService
             'spontaneous_violations' => 0,
             'damage_violations' => 0,
             'revision_violations' => 0,
+            'digital_submission_violations' => 0,
             'shipping_violations' => 0,
             'expired_private_offers' => 0,
             'reminders' => 0,
@@ -33,6 +34,7 @@ final class SchedulerService
             $result['spontaneous_violations'] = $this->spontaneous();
             $result['damage_violations'] = $this->damageRequests();
             $result['revision_violations'] = $this->revisions();
+            $result['digital_submission_violations'] = $this->digitalSubmissions();
             $result['shipping_violations'] = $this->shipping();
             $result['expired_private_offers'] = $this->privateOffers();
             $result['reminders'] = $this->reminders();
@@ -183,9 +185,24 @@ final class SchedulerService
         return $made;
     }
 
+    private function digitalSubmissions(): int
+    {
+        $q = $this->db->query("SELECT dc.id,oc.order_id,oc.id order_component_id FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE dc.deadline IS NOT NULL AND DATE_ADD(dc.deadline,INTERVAL 1 HOUR)<NOW() AND dc.status IN('open','draft','running') AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE DATE_ADD(dc.deadline,INTERVAL 1 HOUR) BETWEEN po.starts_at AND po.ends_at)");
+        $made = 0;
+
+        foreach ($q->fetchAll() as $row) {
+            $extension = $this->digitalViolationExtends((int) $row['order_id']);
+            if ($this->ensureViolation((int) $row['order_id'], 'digital_submission_missed', 'digital_component', (int) $row['id'], 'Digitale Abgabe wurde nicht innerhalb der Abgabefrist einschließlich Nachfrist final eingereicht.', $extension, (int) $row['order_component_id'])) {
+                $made++;
+            }
+        }
+
+        return $made;
+    }
+
     private function shipping(): int
     {
-        $q = $this->db->query("SELECT ss.id,sw.order_id,sw.order_component_id FROM shipping_steps ss JOIN shipping_workflows sw ON sw.id=ss.shipping_workflow_id WHERE ss.is_required=1 AND ss.status='pending' AND ss.deadline IS NOT NULL AND DATE_ADD(ss.deadline,INTERVAL 1 HOUR)<NOW() AND sw.status='active'");
+        $q = $this->db->query("SELECT ss.id,sw.order_id,sw.order_component_id FROM shipping_steps ss JOIN shipping_workflows sw ON sw.id=ss.shipping_workflow_id WHERE ss.is_required=1 AND ss.status='pending' AND ss.deadline IS NOT NULL AND DATE_ADD(ss.deadline,INTERVAL 1 HOUR)<NOW() AND sw.status='active' AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE DATE_ADD(ss.deadline,INTERVAL 1 HOUR) BETWEEN po.starts_at AND po.ends_at)");
         $made = 0;
 
         foreach ($q->fetchAll() as $row) {
@@ -261,6 +278,34 @@ final class SchedulerService
         $revisions = $this->db->query("SELECT rr.id,rr.deadline,oc.order_id,o.seller_id FROM revision_rounds rr JOIN digital_components dc ON dc.id=rr.digital_component_id JOIN order_components oc ON oc.id=dc.order_component_id JOIN orders o ON o.id=oc.order_id WHERE rr.status='open' AND rr.deadline BETWEEN NOW() AND DATE_ADD(NOW(),INTERVAL 1 HOUR)")->fetchAll();
         foreach ($revisions as $row) {
             if ($this->notify((int) $row['seller_id'], 'revision:' . $row['id'] . ':1h', 'Revision bald fällig', 'Die Revisionsfrist läuft innerhalb der nächsten Stunde ab.', '/konto/auftraege/' . $row['order_id'])) {
+                $count++;
+            }
+        }
+
+        $retakes = $this->db->query("SELECT e.id,e.order_id,e.retake_deadline,o.seller_id FROM evidences e JOIN orders o ON o.id=e.order_id WHERE e.review_status='rejected' AND e.resolved_by_evidence_id IS NULL AND e.retake_deadline BETWEEN NOW() AND DATE_ADD(NOW(),INTERVAL 1 HOUR)")->fetchAll();
+        foreach ($retakes as $row) {
+            if ($this->notify((int) $row['seller_id'], 'retake:' . $row['id'] . ':1h', 'Nachaufnahme bald fällig', 'Die Frist für eine angeforderte Nachaufnahme läuft innerhalb der nächsten Stunde ab.', '/konto/auftraege/' . $row['order_id'])) {
+                $count++;
+            }
+        }
+
+        $digital = $this->db->query("SELECT dc.id,dc.deadline,oc.order_id,o.seller_id FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id JOIN orders o ON o.id=oc.order_id WHERE dc.status IN('open','draft','running') AND dc.deadline BETWEEN NOW() AND DATE_ADD(NOW(),INTERVAL 1 HOUR)")->fetchAll();
+        foreach ($digital as $row) {
+            if ($this->notify((int) $row['seller_id'], 'digital:' . $row['id'] . ':1h', 'Digitale Abgabe bald fällig', 'Die Frist für deine digitale Abgabe läuft innerhalb der nächsten Stunde ab.', '/konto/auftraege/' . $row['order_id'])) {
+                $count++;
+            }
+        }
+
+        $damage = $this->db->query("SELECT dr.id,dr.deadline,dc.order_id,o.seller_id FROM damage_evidence_requests dr JOIN damage_cases dc ON dc.id=dr.damage_case_id JOIN orders o ON o.id=dc.order_id WHERE dr.status='requested' AND dr.deadline BETWEEN NOW() AND DATE_ADD(NOW(),INTERVAL 1 HOUR)")->fetchAll();
+        foreach ($damage as $row) {
+            if ($this->notify((int) $row['seller_id'], 'damage-request:' . $row['id'] . ':1h', 'Schadensnachweis bald fällig', 'Die Frist für den angeforderten Schadensnachweis läuft innerhalb der nächsten Stunde ab.', '/konto/auftraege/' . $row['order_id'])) {
+                $count++;
+            }
+        }
+
+        $shipping = $this->db->query("SELECT ss.id,ss.title,ss.deadline,sw.order_id,o.seller_id FROM shipping_steps ss JOIN shipping_workflows sw ON sw.id=ss.shipping_workflow_id JOIN orders o ON o.id=sw.order_id WHERE sw.status='active' AND ss.status='pending' AND ss.deadline BETWEEN NOW() AND DATE_ADD(NOW(),INTERVAL 1 HOUR)")->fetchAll();
+        foreach ($shipping as $row) {
+            if ($this->notify((int) $row['seller_id'], 'shipping-step:' . $row['id'] . ':1h', 'Versandschritt bald fällig', 'Der Versandschritt „' . $row['title'] . '“ ist innerhalb der nächsten Stunde fällig.', '/konto/auftraege/' . $row['order_id'])) {
                 $count++;
             }
         }

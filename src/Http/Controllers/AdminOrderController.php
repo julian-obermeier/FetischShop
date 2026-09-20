@@ -3,6 +3,20 @@ namespace App\Http\Controllers;
 use App\Core\Auth;use App\Core\Request;use App\Core\Response;use App\Core\Session;use App\Core\View;use App\Services\OrderService;use PDO;use DateTimeImmutable;
 final class AdminOrderController{
  public function __construct(private string $root,private PDO $db,private Auth $auth){}
+ public function index(Request $r):void{
+  $term=trim((string)$r->input('q'));$status=trim((string)$r->input('status'));$phase=trim((string)$r->input('phase'));
+  $where=[];$params=[];
+  if($term!==''){$like='%'.$term.'%';$where[]="(o.order_number LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ? OR s.email LIKE ? OR ov.title LIKE ?)";array_push($params,$like,$like,$like,$like,$like);}
+  if($status!==''){$where[]='o.status=?';$params[]=$status;}
+  if($phase!==''){$where[]='o.phase=?';$params[]=$phase;}
+  $sql="SELECT o.*,s.first_name,s.last_name,s.email,ov.title,COUNT(oc.id) component_count,SUM(oc.component_type='physical') physical_count,SUM(oc.component_type='digital') digital_count FROM orders o JOIN sellers s ON s.id=o.seller_id JOIN offer_versions ov ON ov.id=o.offer_version_id LEFT JOIN order_components oc ON oc.order_id=o.id";
+  if($where)$sql.=' WHERE '.implode(' AND ',$where);
+  $sql.=" GROUP BY o.id ORDER BY o.updated_at DESC,o.id DESC LIMIT 250";
+  $q=$this->db->prepare($sql);$q->execute($params);
+  $statuses=$this->db->query("SELECT DISTINCT status FROM orders ORDER BY status")->fetchAll(PDO::FETCH_COLUMN);
+  $phases=$this->db->query("SELECT DISTINCT phase FROM orders ORDER BY phase")->fetchAll(PDO::FETCH_COLUMN);
+  View::render($this->root,'admin/orders',['pageTitle'=>'Aufträge','orders'=>$q->fetchAll(),'filterTerm'=>$term,'filterStatus'=>$status,'filterPhase'=>$phase,'statuses'=>$statuses,'phases'=>$phases]);
+ }
  public function show(Request $r,array $p):void{
   $q=$this->db->prepare("SELECT o.*,s.first_name,s.last_name,s.email,ov.title,c.is_digital FROM orders o JOIN sellers s ON s.id=o.seller_id JOIN offer_versions ov ON ov.id=o.offer_version_id JOIN offers off ON off.id=o.offer_id JOIN categories c ON c.id=off.category_id WHERE o.id=?");$q->execute([(int)$p['id']]);$o=$q->fetch();if(!$o)Response::abort(404);
   $components=$this->db->prepare("SELECT oc.*,c.name category_name FROM order_components oc JOIN categories c ON c.id=oc.category_id WHERE oc.order_id=? ORDER BY oc.sort_order,oc.id");$components->execute([$o['id']]);$components=$components->fetchAll();

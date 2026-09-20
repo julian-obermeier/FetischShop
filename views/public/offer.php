@@ -15,11 +15,11 @@ $durationText=trim(($offer['duration_value']??'').' '.($offer['duration_unit']??
 <header class="offer-detail-hero">
     <div class="offer-detail-copy">
         <div class="offer-detail-badges">
-            <span class="pill"><?=AppCoreView::e($offer['category_name'])?></span>
-            <span class="seller-status"><?=AppCoreView::e($fulfillmentLabels[$offer['fulfillment_model']]??$offer['fulfillment_model'])?></span>
+            <span class="pill"><?=App\Core\View::e($offer['category_name'])?></span>
+            <span class="seller-status"><?=App\Core\View::e($fulfillmentLabels[$offer['fulfillment_model']]??$offer['fulfillment_model'])?></span>
         </div>
-        <h1><?=AppCoreView::e($offer['title'])?></h1>
-        <p class="offer-lead"><?=nl2br(AppCoreView::e($offer['description']))?></p>
+        <h1><?=App\Core\View::e($offer['title'])?></h1>
+        <p class="offer-lead"><?=nl2br(App\Core\View::e($offer['description']))?></p>
     </div>
     <div class="offer-price-block">
         <small>Grundvergütung</small>
@@ -30,11 +30,11 @@ $durationText=trim(($offer['duration_value']??'').' '.($offer['duration_unit']??
 <div class="offer-facts">
     <div class="offer-fact-card">
         <span class="offer-fact-icon">◈</span>
-        <div><small>Art des Auftrags</small><strong><?=AppCoreView::e($fulfillmentLabels[$offer['fulfillment_model']]??$offer['fulfillment_model'])?></strong></div>
+        <div><small>Art des Auftrags</small><strong><?=App\Core\View::e($fulfillmentLabels[$offer['fulfillment_model']]??$offer['fulfillment_model'])?></strong></div>
     </div>
     <div class="offer-fact-card">
         <span class="offer-fact-icon">◷</span>
-        <div><small>Dauer / Umfang</small><strong><?=AppCoreView::e($durationText)?></strong></div>
+        <div><small>Dauer / Umfang</small><strong><?=App\Core\View::e($durationText)?></strong></div>
     </div>
 </div>
 
@@ -45,8 +45,8 @@ $durationText=trim(($offer['duration_value']??'').' '.($offer['duration_unit']??
     <?php foreach($components as $co):?>
         <div class="offer-component-row">
             <div>
-                <b><?=AppCoreView::e($co['title'])?></b>
-                <span><?=AppCoreView::e($co['category_name'])?> · <?=AppCoreView::e($componentTypeLabels[$co['component_type']]??$co['component_type'])?> · <?=AppCoreView::e($fulfillmentLabels[$co['fulfillment_model']]??$co['fulfillment_model'])?><?php if($co['duration_value']):?> · <?= (int)$co['duration_value'] ?> <?=AppCoreView::e($co['duration_unit']??'')?><?php endif;?></span>
+                <b><?=App\Core\View::e($co['title'])?></b>
+                <span><?=App\Core\View::e($co['category_name'])?> · <?=App\Core\View::e($componentTypeLabels[$co['component_type']]??$co['component_type'])?> · <?=App\Core\View::e($fulfillmentLabels[$co['fulfillment_model']]??$co['fulfillment_model'])?><?php if($co['duration_value']):?> · <?= (int)$co['duration_value'] ?> <?=App\Core\View::e($co['duration_unit']??'')?><?php endif;?></span>
             </div>
             <strong><?=number_format((float)$co['compensation'],2,',','.')?> €</strong>
         </div>
@@ -79,7 +79,7 @@ $durationText=trim(($offer['duration_value']??'').' '.($offer['duration_unit']??
 
         <div class="offer-summary-row">
             <span class="offer-summary-icon">☑</span>
-            <div class="offer-summary-copy"><b>Zusatzaufgaben</b><span><?=count($offerTasks)?> bereits vorgeplant<?php if($offerTasks):?> · <?=AppCoreView::e(implode(', ',array_map(fn($t)=>$t['title'],$offerTasks)))?><?php endif;?></span></div>
+            <div class="offer-summary-copy"><b>Zusatzaufgaben</b><span><?=count($offerTasks)?> bereits vorgeplant<?php if($offerTasks):?> · <?=App\Core\View::e(implode(', ',array_map(fn($t)=>$t['title'],$offerTasks)))?><?php endif;?></span></div>
             <strong class="offer-summary-value"><?=count($offerTasks)?></strong>
         </div>
 
@@ -106,7 +106,7 @@ $durationText=trim(($offer['duration_value']??'').' '.($offer['duration_unit']??
 <?php if($seller&&$eligibilityReason):?>
 <div class="offer-status-banner blocked">
     <span class="offer-status-icon">!</span>
-    <div><strong>Dieses Angebot kann aktuell nicht angenommen werden.</strong><p><?=AppCoreView::e($eligibilityReason)?></p></div>
+    <div><strong>Dieses Angebot kann aktuell nicht angenommen werden.</strong><p><?=App\Core\View::e($eligibilityReason)?></p></div>
 </div>
 <?php elseif($seller):?>
 <div class="offer-status-banner">
@@ -115,7 +115,7 @@ $durationText=trim(($offer['duration_value']??'').' '.($offer['duration_unit']??
 </div>
 <?php endif;?>
 
-<form method="post" action="/konto/angebote/<?=$offer['offer_id']?>/annehmen" class="accept-box offer-accept-box"><?=AppCoreCsrf::field()?>
+<form method="post" action="/konto/angebote/<?=$offer['offer_id']?>/annehmen" class="accept-box offer-accept-box"><?=App\Core\Csrf::field()?>
 
 <?php if($options):?>
 <section class="offer-options-section">
@@ -126,9 +126,9 @@ $durationText=trim(($offer['duration_value']??'').' '.($offer['duration_unit']??
             <div class="offer-option-main">
                 <input type="checkbox" name="options[]" value="<?=$op['id']?>" data-option-price="<?=App\Core\View::e((string)(float)$op['price'])?>">
                 <div>
-                    <b><?=AppCoreView::e($op['name'])?></b>
-                    <?php if(trim((string)$op['description'])!==''):?><span><?=AppCoreView::e($op['description'])?></span><?php endif;?>
-                    <?php if($reqText!==''):?><small><?=AppCoreView::e($reqText)?></small><?php endif;?>
+                    <b><?=App\Core\View::e($op['name'])?></b>
+                    <?php if(trim((string)$op['description'])!==''):?><span><?=App\Core\View::e($op['description'])?></span><?php endif;?>
+                    <?php if($reqText!==''):?><small><?=App\Core\View::e($reqText)?></small><?php endif;?>
                 </div>
             </div>
             <strong class="offer-option-price"><?=((float)$op['price']>0?'+ '.number_format((float)$op['price'],2,',','.').' €':'kostenlos')?></strong>
@@ -186,7 +186,7 @@ $durationText=trim(($offer['duration_value']??'').' '.($offer['duration_unit']??
 </form>
 
 <?php if($seller && !empty($offer['is_private']) && $offer['private_offer_status']==='pending'):?>
-<form method="post" action="/konto/angebote/<?=$offer['offer_id']?>/ablehnen" class="decline-box offer-decline-box"><?=AppCoreCsrf::field()?>
+<form method="post" action="/konto/angebote/<?=$offer['offer_id']?>/ablehnen" class="decline-box offer-decline-box"><?=App\Core\Csrf::field()?>
 <label>Ablehnungsgrund<textarea name="reason" rows="3" required placeholder="Warum möchtest du dieses Privatangebot ablehnen?"></textarea></label>
 <button class="btn wide" type="submit">Privatangebot ablehnen</button>
 </form>

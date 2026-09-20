@@ -164,3 +164,20 @@ function enhanceCameraInputs(){
   });
 }
 document.addEventListener('DOMContentLoaded',enhanceCameraInputs);
+
+function updateOfferTotal(){
+  const box=document.querySelector('[data-offer-total]');
+  if(!box)return;
+  const base=Number.parseFloat(box.dataset.baseTotal||'0')||0;
+  const checked=[...document.querySelectorAll('input[data-option-price]:checked')];
+  const extras=checked.reduce((sum,input)=>sum+(Number.parseFloat(input.dataset.optionPrice||'0')||0),0);
+  const total=base+extras;
+  const value=box.querySelector('[data-offer-total-value]');
+  const count=box.querySelector('[data-offer-option-count]');
+  if(value)value.textContent=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(total);
+  if(count)count.textContent=checked.length===0?'Keine Zusatzoption ausgewählt':checked.length+' Zusatzoption'+(checked.length===1?'':'en')+' ausgewählt';
+}
+document.addEventListener('change',e=>{
+  if(e.target.matches('input[data-option-price]'))updateOfferTotal();
+});
+document.addEventListener('DOMContentLoaded',updateOfferTotal);

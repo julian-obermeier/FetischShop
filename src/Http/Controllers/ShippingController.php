@@ -120,7 +120,7 @@ final class ShippingController
                     'text' => !empty($step['text']),
                     'tracking' => !empty($step['tracking']),
                 ];
-                $this->db->prepare("INSERT INTO shipping_steps(shipping_workflow_id,step_no,title,instructions,is_required,config_json,status,created_at) VALUES(?,?,?,?,?,?,'pending',NOW())")
+                $this->db->prepare("INSERT INTO shipping_steps(shipping_workflow_id,step_no,title,instructions,is_required,config_json,status) VALUES(?,?,?,?,?,?,'pending')")
                     ->execute([$workflowId, $n, $title, $instructions, $required, json_encode($config, JSON_UNESCAPED_UNICODE)]);
                 $n++;
             }

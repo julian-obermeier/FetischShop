@@ -31,6 +31,15 @@ final class OrderController{
   $categoryFields=(new CategoryFieldService($this->db))->groupedForCategories(array_map(fn($co)=>(int)$co['category_id'],$components));
   $itemsQ=$this->db->prepare('SELECT * FROM order_items WHERE order_id=? AND order_run_id=? ORDER BY id');$itemsQ->execute([$o['id'],$run['id']]);$items=[];foreach($itemsQ->fetchAll() as $it)$items[(int)($it['order_component_id']??0)]=$it;$item=$items?reset($items):false;
   $preQ=$this->db->prepare("SELECT pr.*,oc.title component_title,(SELECT COUNT(*) FROM evidences e WHERE e.precheck_requirement_id=pr.id AND e.review_status='accepted') accepted_count,(SELECT COUNT(*) FROM evidences e WHERE e.precheck_requirement_id=pr.id AND e.review_status='pending') pending_count FROM precheck_requirements pr LEFT JOIN order_components oc ON oc.id=pr.order_component_id WHERE pr.order_id=? AND pr.order_run_id=? ORDER BY oc.sort_order,pr.sort_order,pr.id");$preQ->execute([$o['id'],$run['id']]);$precheckRequirements=$preQ->fetchAll();
+  if(!$o['started_at'] && $run && !$precheckRequirements && array_filter($components,fn($co)=>$co['component_type']==='physical')){
+   try{
+    (new OrderService($this->db,$this->root))->initializePrechecksForRun((int)$o['id'],(int)$run['id']);
+    $preQ->execute([$o['id'],$run['id']]);
+    $precheckRequirements=$preQ->fetchAll();
+   }catch(\Throwable $repairError){
+    \App\Core\Logger::error($this->root,'Vorabkontrollen konnten nicht automatisch rekonstruiert werden.',['order_id'=>(int)$o['id'],'error'=>$repairError->getMessage()]);
+   }
+  }
   $ev=$this->db->prepare("SELECT e.*,ew.name window_name,ew.camera_required window_camera_required,pr.label precheck_label,pr.camera_required precheck_camera_required,oc.title component_title FROM evidences e LEFT JOIN evidence_windows ew ON ew.id=e.evidence_window_id LEFT JOIN precheck_requirements pr ON pr.id=e.precheck_requirement_id LEFT JOIN order_components oc ON oc.id=e.order_component_id WHERE e.order_id=? ORDER BY e.created_at DESC");$ev->execute([$o['id']]);
   $days=$this->db->prepare("SELECT od.*,oc.title component_title,(SELECT COUNT(*) FROM evidence_windows ew WHERE ew.order_day_id=od.id) window_count FROM order_days od LEFT JOIN order_components oc ON oc.id=od.order_component_id WHERE od.order_id=? ORDER BY calendar_date,oc.sort_order,COALESCE(day_no,0)");$days->execute([$o['id']]);
   $windows=$this->db->prepare("SELECT ew.*,od.day_no,od.calendar_date,od.order_component_id,oc.title component_title,(SELECT COUNT(*) FROM evidences e WHERE e.evidence_window_id=ew.id) uploaded_count FROM evidence_windows ew JOIN order_days od ON od.id=ew.order_day_id LEFT JOIN order_components oc ON oc.id=od.order_component_id WHERE od.order_id=? ORDER BY ew.starts_at,oc.sort_order");$windows->execute([$o['id']]);

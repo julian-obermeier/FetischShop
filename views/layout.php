@@ -103,6 +103,7 @@ function sellerNavActive(string $currentPath, string $href): string {
 <header class="seller-topbar">
 <button class="seller-menu-toggle" type="button" data-seller-menu aria-label="Menü öffnen">☰</button>
 <div><b><?=View::e($pageTitle)?></b><small>Mein Verkäuferinnen-Bereich</small></div>
+<a class="seller-top-alert<?=sellerNavActive($currentPath,'/konto/benachrichtigungen')?>" href="/konto/benachrichtigungen" aria-label="Benachrichtigungen"><span>●</span><?php if($sellerUnread>0):?><em><?=$sellerUnread>99?'99+':$sellerUnread?></em><?php endif;?></a>
 <a class="seller-top-offer" href="/angebote">Angebote ansehen</a>
 </header>
 <?php if($m=Session::pullFlash('success')):?><div class="flash success"><?=View::e($m)?></div><?php endif;?>

@@ -14,7 +14,23 @@ final class SellerWorkController{
   $this->db->prepare("UPDATE task_executions SET response_json=?,submitted_at=NOW(),review_status='pending' WHERE id=?")->execute([json_encode($responses,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$eid]);Session::flash('success','Aufgabe wurde eingereicht.');Response::redirect('/konto/auftraege/'.$o['id']);
  }
  public function reportDamage(Request $r,array $p):void{
-  $o=$this->order((int)$p['id']);try{$reason=trim((string)$r->input('reason'));if($reason==='')throw new RuntimeException('Bitte den Grund angeben.');$f=$this->storage()->storeUploaded($r->files['evidence']??[],'evidence',['image/jpeg','image/png','image/webp'],12*1024*1024);$run=$this->db->prepare('SELECT id FROM order_runs WHERE order_id=? ORDER BY run_no DESC LIMIT 1');$run->execute([$o['id']]);$runId=(int)$run->fetchColumn();$this->db->beginTransaction();$this->db->prepare("INSERT INTO evidences(order_id,order_run_id,evidence_type,file_path,original_name,mime_type,file_size,sha256,captured_at,metadata_json,review_status,created_at) VALUES(?,?,'damage_initial',?,?,?,?,?,NOW(),'{}','pending',NOW())")->execute([$o['id'],$runId,$f['path'],$f['original_name'],$f['mime'],$f['size'],$f['sha256']]);$ev=(int)$this->db->lastInsertId();$this->db->prepare("INSERT INTO damage_cases(order_id,order_run_id,reason,initial_evidence_id,status,created_at) VALUES(?,?,?,?,'reported',NOW())")->execute([$o['id'],$runId,$reason,$ev]);$this->db->commit();Session::flash('success','Beschädigung wurde gemeldet. Auftrag und Fristen laufen bis zur Entscheidung weiter.');}catch(\Throwable $e){if($this->db->inTransaction())$this->db->rollBack();Session::flash('error',$e->getMessage());}Response::redirect('/konto/auftraege/'.$o['id']);
+  $o=$this->order((int)$p['id']);
+  try{
+   $reason=trim((string)$r->input('reason'));if($reason==='')throw new RuntimeException('Bitte den Grund angeben.');
+   $componentId=(int)$r->input('order_component_id');$cq=$this->db->prepare("SELECT * FROM order_components WHERE id=? AND order_id=? AND component_type='physical'");$cq->execute([$componentId,$o['id']]);$component=$cq->fetch();if(!$component)throw new RuntimeException('Bitte den betroffenen physischen Auftragsbestandteil auswählen.');
+   $file=$this->storage()->storeUploaded($r->files['evidence']??[],'evidence',['image/jpeg','image/png','image/webp'],12*1024*1024);
+   $run=$this->db->prepare('SELECT id FROM order_runs WHERE order_id=? ORDER BY run_no DESC LIMIT 1');$run->execute([$o['id']]);$runId=(int)$run->fetchColumn();
+   $this->db->beginTransaction();
+   $this->db->prepare("INSERT INTO evidences(order_id,order_run_id,order_component_id,evidence_type,file_path,original_name,mime_type,file_size,sha256,captured_at,metadata_json,review_status,created_at) VALUES(?,?,?,'damage_initial',?,?,?,?,?,NOW(),'{}','pending',NOW())")->execute([$o['id'],$runId,$componentId,$file['path'],$file['original_name'],$file['mime'],$file['size'],$file['sha256']]);
+   $evidenceId=(int)$this->db->lastInsertId();
+   $this->db->prepare("INSERT INTO damage_cases(order_id,order_run_id,order_component_id,reason,initial_evidence_id,status,created_at) VALUES(?,?,?,?,?,'reported',NOW())")->execute([$o['id'],$runId,$componentId,$reason,$evidenceId]);
+   $this->db->commit();
+   Session::flash('success','Beschädigung für „'.$component['title'].'“ wurde gemeldet. Auftrag und Fristen laufen bis zur Entscheidung weiter.');
+  }catch(\Throwable $e){
+   if($this->db->inTransaction())$this->db->rollBack();
+   Session::flash('error',$e->getMessage());
+  }
+  Response::redirect('/konto/auftraege/'.$o['id']);
  }
  public function damageResponse(Request $r,array $p):void{
   $o=$this->order((int)$p['id']);$reqId=(int)$p['requestId'];$q=$this->db->prepare('SELECT dr.* FROM damage_evidence_requests dr JOIN damage_cases dc ON dc.id=dr.damage_case_id WHERE dr.id=? AND dc.order_id=?');$q->execute([$reqId,$o['id']]);$req=$q->fetch();if(!$req)Response::abort(404);if(time()>strtotime($req['grace_ends_at'])){Session::flash('error','Nachfrist abgelaufen.');Response::redirect('/konto/auftraege/'.$o['id']);}

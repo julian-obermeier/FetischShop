@@ -75,25 +75,100 @@ final class OrderController{
   Response::redirect('/konto/auftraege/'.$o['id']);
  }
  public function uploadEvidence(Request $r,array $p):void{
-  $s=$this->auth->seller();$q=$this->db->prepare('SELECT * FROM orders WHERE id=? AND seller_id=?');$q->execute([(int)$p['id'],$s['id']]);$o=$q->fetch();if(!$o)Response::abort(404);
+  $seller=$this->auth->seller();
+  $q=$this->db->prepare('SELECT * FROM orders WHERE id=? AND seller_id=?');
+  $q->execute([(int)$p['id'],$seller['id']]);
+  $order=$q->fetch();
+  if(!$order)Response::abort(404);
+
   try{
-   $run=$this->db->prepare('SELECT id FROM order_runs WHERE order_id=? ORDER BY run_no DESC LIMIT 1');$run->execute([$o['id']]);$rid=(int)$run->fetchColumn();
-   $type=(string)$r->input('evidence_type','regular');$windowId=$r->input('evidence_window_id')?(int)$r->input('evidence_window_id'):null;$componentId=null;$precheckRequirementId=null;
-   if($type==='precheck'){
-    if($o['started_at'])throw new RuntimeException('Vorabnachweise können nach Start nicht mehr ergänzt werden.');
-    $precheckRequirementId=(int)$r->input('precheck_requirement_id');$pr=$this->db->prepare("SELECT pr.*,oc.id component_id FROM precheck_requirements pr JOIN order_components oc ON oc.id=pr.order_component_id WHERE pr.id=? AND pr.order_id=? AND pr.order_run_id=?");$pr->execute([$precheckRequirementId,$o['id'],$rid]);$req=$pr->fetch();if(!$req)throw new RuntimeException('Vorabanforderung ist ungültig.');$componentId=(int)$req['component_id'];
-    $it=$this->db->prepare('SELECT COUNT(*) FROM order_items WHERE order_id=? AND order_run_id=? AND order_component_id=?');$it->execute([$o['id'],$rid,$componentId]);if((int)$it->fetchColumn()<1)throw new RuntimeException('Bitte zuerst den konkreten Artikel dieses Bestandteils erfassen.');
-    if((int)($req['camera_required']??0)===1 && (string)$r->input('capture_source')!=='live_camera')throw new RuntimeException('Für diese Vorabkontrolle ist eine Aufnahme direkt über die Plattformkamera erforderlich.');
-   } else {
-    if(!$windowId)throw new RuntimeException('Nachweisfenster fehlt.');$w=$this->db->prepare("SELECT ew.*,od.order_component_id FROM evidence_windows ew JOIN order_days od ON od.id=ew.order_day_id WHERE ew.id=? AND od.order_id=? AND od.order_run_id=? AND od.status<>'ended_by_restart'");$w->execute([$windowId,$o['id'],$rid]);$win=$w->fetch();if(!$win)throw new RuntimeException('Nachweisfenster ist ungültig oder gehört zu einem früheren Durchlauf.');$componentId=$win['order_component_id']?(int)$win['order_component_id']:null;$now=time();if($now<strtotime($win['starts_at']))throw new RuntimeException('Das Nachweisfenster hat noch nicht begonnen.');if($now>strtotime($win['grace_ends_at']))throw new RuntimeException('Die Nachfrist ist abgelaufen.');if((int)($win['camera_required']??0)===1 && (string)$r->input('capture_source')!=='live_camera')throw new RuntimeException('Für dieses Nachweisfenster ist eine Aufnahme direkt über die Plattformkamera erforderlich.');
+   $runQ=$this->db->prepare('SELECT id FROM order_runs WHERE order_id=? ORDER BY run_no DESC LIMIT 1');
+   $runQ->execute([$order['id']]);
+   $runId=(int)$runQ->fetchColumn();
+
+   $type=(string)$r->input('evidence_type','regular');
+   $windowId=$r->input('evidence_window_id')?(int)$r->input('evidence_window_id'):null;
+   $componentId=null;
+   $precheckRequirementId=null;
+   $retakeOf=null;
+   $cameraRequired=false;
+
+   if($type==='retake'){
+    $retakeOf=(int)$r->input('retake_of_evidence_id');
+    $rq=$this->db->prepare("SELECT e.*,pr.camera_required precheck_camera,ew.camera_required window_camera
+      FROM evidences e
+      LEFT JOIN precheck_requirements pr ON pr.id=e.precheck_requirement_id
+      LEFT JOIN evidence_windows ew ON ew.id=e.evidence_window_id
+      WHERE e.id=? AND e.order_id=? AND e.order_run_id=? AND e.review_status='rejected'
+        AND e.resolved_by_evidence_id IS NULL AND e.retake_deadline IS NOT NULL");
+    $rq->execute([$retakeOf,$order['id'],$runId]);
+    $original=$rq->fetch();
+    if(!$original)throw new RuntimeException('Diese Nachaufnahme ist nicht mehr verfügbar.');
+    if(!$original['retake_grace_ends_at']||time()>strtotime($original['retake_grace_ends_at']))throw new RuntimeException('Die Nachfrist für diese Nachaufnahme ist abgelaufen.');
+
+    $componentId=$original['order_component_id']?(int)$original['order_component_id']:null;
+    $precheckRequirementId=$original['precheck_requirement_id']?(int)$original['precheck_requirement_id']:null;
+    $windowId=$original['evidence_window_id']?(int)$original['evidence_window_id']:null;
+    $cameraRequired=((int)($original['precheck_camera']??0)===1)||((int)($original['window_camera']??0)===1);
+   }elseif($type==='precheck'){
+    if($order['started_at'])throw new RuntimeException('Vorabnachweise können nach Start nicht mehr ergänzt werden.');
+    $precheckRequirementId=(int)$r->input('precheck_requirement_id');
+    $pr=$this->db->prepare("SELECT pr.*,oc.id component_id FROM precheck_requirements pr JOIN order_components oc ON oc.id=pr.order_component_id WHERE pr.id=? AND pr.order_id=? AND pr.order_run_id=?");
+    $pr->execute([$precheckRequirementId,$order['id'],$runId]);
+    $req=$pr->fetch();
+    if(!$req)throw new RuntimeException('Vorabanforderung ist ungültig.');
+    $componentId=(int)$req['component_id'];
+    $cameraRequired=(int)($req['camera_required']??0)===1;
+
+    $it=$this->db->prepare('SELECT COUNT(*) FROM order_items WHERE order_id=? AND order_run_id=? AND order_component_id=?');
+    $it->execute([$order['id'],$runId,$componentId]);
+    if((int)$it->fetchColumn()<1)throw new RuntimeException('Bitte zuerst den konkreten Artikel dieses Bestandteils erfassen.');
+
+    $old=$this->db->prepare("SELECT id FROM evidences WHERE order_id=? AND order_run_id=? AND precheck_requirement_id=? AND review_status='rejected' AND resolved_by_evidence_id IS NULL ORDER BY id DESC LIMIT 1");
+    $old->execute([$order['id'],$runId,$precheckRequirementId]);
+    $retakeOf=$old->fetchColumn()?:null;
+   }else{
+    if(!$windowId)throw new RuntimeException('Nachweisfenster fehlt.');
+    $w=$this->db->prepare("SELECT ew.*,od.order_component_id FROM evidence_windows ew JOIN order_days od ON od.id=ew.order_day_id WHERE ew.id=? AND od.order_id=? AND od.order_run_id=? AND od.status<>'ended_by_restart'");
+    $w->execute([$windowId,$order['id'],$runId]);
+    $win=$w->fetch();
+    if(!$win)throw new RuntimeException('Nachweisfenster ist ungültig oder gehört zu einem früheren Durchlauf.');
+    $componentId=$win['order_component_id']?(int)$win['order_component_id']:null;
+    if(time()<strtotime($win['starts_at']))throw new RuntimeException('Das Nachweisfenster hat noch nicht begonnen.');
+    if(time()>strtotime($win['grace_ends_at']))throw new RuntimeException('Die Nachfrist ist abgelaufen.');
+    $cameraRequired=(int)($win['camera_required']??0)===1;
    }
-   $retakeOf=null;if($type==='precheck'&&$precheckRequirementId){$rq=$this->db->prepare("SELECT id FROM evidences WHERE order_id=? AND order_run_id=? AND precheck_requirement_id=? AND review_status='rejected' AND resolved_by_evidence_id IS NULL ORDER BY id DESC LIMIT 1");$rq->execute([$o['id'],$rid,$precheckRequirementId]);$retakeOf=$rq->fetchColumn()?:null;}
-   $cfg=require $this->root.'/config/app.php';$file=(new PrivateStorage($cfg['private_storage']))->storeUploaded($r->files['evidence']??[],'evidence',['image/jpeg','image/png','image/webp'],12*1024*1024);
-   $this->db->prepare("INSERT INTO evidences(order_id,order_run_id,order_component_id,precheck_requirement_id,retake_of_evidence_id,evidence_window_id,evidence_type,file_path,original_name,mime_type,file_size,sha256,captured_at,metadata_json,review_status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NOW(),?,'pending',NOW())")->execute([$o['id'],$rid,$componentId,$precheckRequirementId,$retakeOf,$windowId,$type,$file['path'],$file['original_name'],$file['mime'],$file['size'],$file['sha256'],json_encode(['user_agent'=>$r->server['HTTP_USER_AGENT']??null,'capture_source'=>in_array((string)$r->input('capture_source'),['live_camera','file_picker'],true)?(string)$r->input('capture_source'):'file_picker'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
-   $newEvidenceId=(int)$this->db->lastInsertId();if($retakeOf)$this->db->prepare('UPDATE evidences SET resolved_by_evidence_id=? WHERE id=? AND resolved_by_evidence_id IS NULL')->execute([$newEvidenceId,$retakeOf]);
+
+   $captureSource=in_array((string)$r->input('capture_source'),['live_camera','file_picker'],true)?(string)$r->input('capture_source'):'file_picker';
+   if($cameraRequired&&$captureSource!=='live_camera')throw new RuntimeException('Für diesen Nachweis ist eine Aufnahme direkt über die Plattformkamera erforderlich.');
+
+   $cfg=require $this->root.'/config/app.php';
+   $file=(new PrivateStorage($cfg['private_storage']))->storeUploaded($r->files['evidence']??[],'evidence',['image/jpeg','image/png','image/webp'],12*1024*1024);
+   $metadata=json_encode([
+    'user_agent'=>$r->server['HTTP_USER_AGENT']??null,
+    'capture_source'=>$captureSource,
+    'retake'=>$retakeOf!==null,
+   ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+
+   $this->db->beginTransaction();
+   $this->db->prepare("INSERT INTO evidences(order_id,order_run_id,order_component_id,precheck_requirement_id,retake_of_evidence_id,evidence_window_id,evidence_type,file_path,original_name,mime_type,file_size,sha256,captured_at,metadata_json,review_status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NOW(),?,'pending',NOW())")
+    ->execute([$order['id'],$runId,$componentId,$precheckRequirementId,$retakeOf,$windowId,$type,$file['path'],$file['original_name'],$file['mime'],$file['size'],$file['sha256'],$metadata]);
+   $newEvidenceId=(int)$this->db->lastInsertId();
+
+   if($retakeOf){
+    $update=$this->db->prepare('UPDATE evidences SET resolved_by_evidence_id=? WHERE id=? AND resolved_by_evidence_id IS NULL');
+    $update->execute([$newEvidenceId,$retakeOf]);
+    if($update->rowCount()!==1)throw new RuntimeException('Diese Nachaufnahme wurde zwischenzeitlich bereits erledigt.');
+   }
+
+   $this->db->commit();
    Session::flash('success',$retakeOf?'Nachaufnahme wurde unverändert gespeichert und erneut zur Prüfung eingereicht.':'Nachweis wurde unverändert gespeichert und zur Prüfung eingereicht.');
-  }catch(\Throwable $e){Session::flash('error',$e->getMessage());}
-  Response::redirect('/konto/auftraege/'.$o['id']);
+  }catch(\Throwable $e){
+   if($this->db->inTransaction())$this->db->rollBack();
+   Session::flash('error',$e->getMessage());
+  }
+
+  Response::redirect('/konto/auftraege/'.$order['id']);
  }
  public function updateOptions(Request $r,array $p):void{
   $seller=$this->auth->seller();$orderId=(int)$p['id'];$selected=$r->input('options',[]);if(!is_array($selected))$selected=[];$selected=array_values(array_unique(array_map('intval',$selected)));

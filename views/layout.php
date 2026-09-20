@@ -4,12 +4,16 @@ use App\Core\View;
 
 $pageTitle = $pageTitle ?? 'FetischShop';
 $isAdmin = (bool) Session::get('admin_id');
+$isSeller = (bool) Session::get('seller_id');
 $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$isSellerArea = !$isAdmin && $isSeller && ($currentPath === '/konto' || str_starts_with($currentPath, '/konto/'));
 
 function adminNavActive(string $currentPath, string $href): string {
-    if ($href === '/admin') {
-        return $currentPath === '/admin' ? ' active' : '';
-    }
+    if ($href === '/admin') return $currentPath === '/admin' ? ' active' : '';
+    return str_starts_with($currentPath, $href) ? ' active' : '';
+}
+function sellerNavActive(string $currentPath, string $href): string {
+    if ($href === '/konto') return $currentPath === '/konto' ? ' active' : '';
     return str_starts_with($currentPath, $href) ? ' active' : '';
 }
 ?>
@@ -24,7 +28,7 @@ function adminNavActive(string $currentPath, string $href): string {
 <link rel="icon" href="/assets/app-icon.svg">
 <link rel="stylesheet" href="/assets/app.css">
 </head>
-<body class="<?=$isAdmin?'admin-body':''?>">
+<body class="<?=$isAdmin?'admin-body':($isSellerArea?'seller-body':'')?>">
 <?php if($isAdmin):?>
 <div class="admin-shell">
 <aside class="admin-sidebar" id="admin-sidebar">
@@ -70,6 +74,37 @@ function adminNavActive(string $currentPath, string $href): string {
 <div class="admin-content"><?php require $contentView;?></div>
 </div>
 </div>
+<?php elseif($isSellerArea):?>
+<div class="seller-shell">
+<aside class="seller-sidebar" id="seller-sidebar">
+<div class="seller-brand"><a href="/konto">Fetisch<span>Shop</span></a><small>Mein Bereich</small></div>
+<nav class="seller-sidebar-nav">
+<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto')?>" href="/konto"><span>⌂</span>Übersicht</a>
+<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/auftraege')?>" href="/konto/auftraege"><span>▥</span>Meine Aufträge</a>
+<a class="seller-nav-link" href="/angebote"><span>◆</span>Neue Angebote</a>
+<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/wallet')?>" href="/konto/wallet"><span>€</span>Wallet & Auszahlung</a>
+<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/benachrichtigungen')?>" href="/konto/benachrichtigungen"><span>●</span>Benachrichtigungen</a>
+<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/profil')?>" href="/konto/profil"><span>♙</span>Mein Profil</a>
+</nav>
+<div class="seller-sidebar-foot"><form method="post" action="/logout"><?=App\Core\Csrf::field()?><button type="submit">Abmelden</button></form></div>
+</aside>
+<div class="seller-main">
+<header class="seller-topbar">
+<button class="seller-menu-toggle" type="button" data-seller-menu aria-label="Menü öffnen">☰</button>
+<div><b><?=View::e($pageTitle)?></b><small>Mein Verkäuferinnen-Bereich</small></div>
+<a class="seller-top-offer" href="/angebote">Angebote ansehen</a>
+</header>
+<?php if($m=Session::pullFlash('success')):?><div class="flash success"><?=View::e($m)?></div><?php endif;?>
+<?php if($m=Session::pullFlash('error')):?><div class="flash danger"><?=View::e($m)?></div><?php endif;?>
+<div class="seller-content"><?php require $contentView;?></div>
+<nav class="seller-mobile-nav">
+<a class="<?=sellerNavActive($currentPath,'/konto')?>" href="/konto"><span>⌂</span><small>Start</small></a>
+<a class="<?=sellerNavActive($currentPath,'/konto/auftraege')?>" href="/konto/auftraege"><span>▥</span><small>Aufträge</small></a>
+<a href="/angebote"><span>◆</span><small>Angebote</small></a>
+<a class="<?=sellerNavActive($currentPath,'/konto/wallet')?>" href="/konto/wallet"><span>€</span><small>Wallet</small></a>
+<a class="<?=sellerNavActive($currentPath,'/konto/profil')?>" href="/konto/profil"><span>♙</span><small>Profil</small></a>
+</nav>
+</div></div>
 <?php else:?>
 <header class="site-header"><a class="brand" href="/">Fetisch<span>Shop</span></a><nav><a href="/angebote">Angebote</a><a href="/so-funktioniert-es">Ablauf</a><a href="/faq">FAQ</a><?php if(Session::get('seller_id')):?><a href="/konto">Mein Bereich</a><?php else:?><a href="/login">Login</a><?php endif;?></nav></header>
 <?php if($m=Session::pullFlash('success')):?><div class="flash success"><?=View::e($m)?></div><?php endif;?>

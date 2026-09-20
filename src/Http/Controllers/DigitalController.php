@@ -156,10 +156,14 @@ final class DigitalController
                 $this->db->prepare("UPDATE revision_rounds SET status='submitted' WHERE id=?")->execute([$revisionId]);
             }
 
-            $remaining = $this->db->prepare("SELECT COUNT(*) FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE oc.order_id=? AND dc.status NOT IN('submitted','accepted','partially_accepted')");
+            $remaining = $this->db->prepare("SELECT COUNT(*) FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE oc.order_id=? AND dc.status NOT IN('submitted','accepted','partially_accepted','rejected')");
             $remaining->execute([$orderId]);
             if ((int) $remaining->fetchColumn() === 0) {
-                $this->db->prepare("UPDATE orders SET status='digital_review',phase='review',updated_at=NOW() WHERE id=?")->execute([$orderId]);
+                $physical = $this->db->prepare("SELECT COUNT(*) FROM order_components WHERE order_id=? AND component_type='physical'");
+                $physical->execute([$orderId]);
+                if ((int) $physical->fetchColumn() === 0) {
+                    $this->db->prepare("UPDATE orders SET status='digital_review',phase='review',updated_at=NOW() WHERE id=?")->execute([$orderId]);
+                }
             }
 
             $this->systemChat($orderId, 'Eine digitale Abgabe wurde final eingereicht und wartet auf Prüfung.');
@@ -187,7 +191,7 @@ final class DigitalController
 
         try {
             $this->db->beginTransaction();
-            $q = $this->db->prepare("SELECT dc.*,oc.order_id FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE dc.id=? AND oc.order_id=? FOR UPDATE");
+            $q = $this->db->prepare("SELECT dc.*,oc.order_id,oc.id order_component_id FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE dc.id=? AND oc.order_id=? FOR UPDATE");
             $q->execute([$componentId, $orderId]);
             $component = $q->fetch();
             if (!$component) {
@@ -257,11 +261,8 @@ final class DigitalController
                     $this->db->prepare("UPDATE revision_rounds SET status='completed',completed_at=NOW() WHERE id=?")->execute([$roundId]);
                 }
 
-                $remaining = $this->db->prepare("SELECT COUNT(*) FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE oc.order_id=? AND dc.status NOT IN('accepted','partially_accepted','rejected')");
-                $remaining->execute([$orderId]);
-                if ((int) $remaining->fetchColumn() === 0) {
-                    $this->db->prepare("UPDATE orders SET status='reviewing',phase='review',updated_at=NOW() WHERE id=?")->execute([$orderId]);
-                }
+                $this->refreshDigitalOrderComponent((int) $component['order_component_id']);
+                $this->advanceOrderReviewIfReady($orderId);
 
                 $this->systemChat($orderId, 'Digitale Endprüfung: ' . $decision . '.');
             }
@@ -291,6 +292,41 @@ final class DigitalController
         $q->execute([$status, $itemId, $orderId]);
         Session::flash('success', 'Revisionspunkt aktualisiert.');
         Response::redirect('/admin/auftraege/' . $orderId);
+    }
+
+    private function refreshDigitalOrderComponent(int $orderComponentId): void
+    {
+        $q = $this->db->prepare("SELECT COUNT(*) total,SUM(status='rejected') rejected,SUM(status='partially_accepted') partial,SUM(status NOT IN('accepted','partially_accepted','rejected')) unresolved FROM digital_components WHERE order_component_id=?");
+        $q->execute([$orderComponentId]);
+        $state = $q->fetch();
+        if (!$state || (int) $state['total'] === 0 || (int) $state['unresolved'] > 0) {
+            return;
+        }
+
+        $status = (int) $state['rejected'] > 0
+            ? 'rejected'
+            : ((int) $state['partial'] > 0 ? 'partially_accepted' : 'accepted');
+
+        $this->db->prepare('UPDATE order_components SET status=?,updated_at=NOW() WHERE id=?')
+            ->execute([$status, $orderComponentId]);
+    }
+
+    private function advanceOrderReviewIfReady(int $orderId): void
+    {
+        $digitalOpen = $this->db->prepare("SELECT COUNT(*) FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE oc.order_id=? AND dc.status NOT IN('accepted','partially_accepted','rejected')");
+        $digitalOpen->execute([$orderId]);
+        if ((int) $digitalOpen->fetchColumn() > 0) {
+            return;
+        }
+
+        $physicalOpen = $this->db->prepare("SELECT COUNT(*) FROM order_components WHERE order_id=? AND component_type='physical' AND status<>'received'");
+        $physicalOpen->execute([$orderId]);
+        if ((int) $physicalOpen->fetchColumn() > 0) {
+            return;
+        }
+
+        $this->db->prepare("UPDATE orders SET status='reviewing',phase='review',updated_at=NOW() WHERE id=?")
+            ->execute([$orderId]);
     }
 
     private function systemChat(int $orderId, string $message): void

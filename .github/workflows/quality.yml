@@ -49,6 +49,15 @@ jobs:
             exit 1
           fi
 
+      - name: No malformed application namespaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE 'AppCore(View|Csrf|Session|Response|Auth)|AppHttpControllers|AppServices' src views --include='*.php'; then
+            echo "Malformed namespace reference found."
+            exit 1
+          fi
+
       - name: Fresh database migrations
         shell: bash
         run: |

@@ -37,6 +37,7 @@ function adminNavActive(string $currentPath, string $href): string {
 <a class="admin-nav-link<?=adminNavActive($currentPath,'/admin/kalender')?>" href="/admin/kalender"><span>□</span>Kalender</a>
 </div>
 <div class="admin-nav-group"><span class="admin-nav-label">Geschäft</span>
+<a class="admin-nav-link<?=adminNavActive($currentPath,'/admin/auftraege')?>" href="/admin/auftraege"><span>▥</span>Aufträge</a>
 <a class="admin-nav-link<?=adminNavActive($currentPath,'/admin/verkaeuferinnen')?>" href="/admin/verkaeuferinnen"><span>♙</span>Verkäuferinnen</a>
 <a class="admin-nav-link<?=adminNavActive($currentPath,'/admin/angebote')?>" href="/admin/angebote"><span>◆</span>Angebote</a>
 <a class="admin-nav-link<?=adminNavActive($currentPath,'/admin/angebotsvorlagen')?>" href="/admin/angebotsvorlagen"><span>▣</span>Angebotsvorlagen</a>

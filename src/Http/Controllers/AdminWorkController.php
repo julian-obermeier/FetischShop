@@ -1,6 +1,6 @@
 <?php
 namespace App\Http\Controllers;
-use App\Core\Auth;use App\Core\Request;use App\Core\Response;use App\Core\Session;use App\Services\OrderService;use PDO;use DateTimeImmutable;
+use App\Core\Auth;use App\Core\Request;use App\Core\Response;use App\Core\Session;use App\Services\OrderService;use App\Services\NotificationService;use App\Services\Mailer;use PDO;use DateTimeImmutable;
 final class AdminWorkController{
  public function __construct(private string $root,private PDO $db,private Auth $auth){}
  public function spontaneous(Request $r,array $p):void{
@@ -13,7 +13,7 @@ final class AdminWorkController{
    $rid=(int)$this->db->lastInsertId();$o=$this->db->prepare('SELECT seller_id FROM orders WHERE id=?');$o->execute([$orderId]);$sid=(int)$o->fetchColumn();
    $this->db->prepare("INSERT INTO notifications(seller_id,dedupe_key,type,title,message,url,created_at) VALUES(?,?,'spontaneous','Zusätzliche Fotoanforderung',?,?,NOW())")
     ->execute([$sid,'spontaneous:'.$rid.':created','Zusätzliche Fotoanforderung: '.$count.' Foto(s) bis '.$deadline->format('d.m.Y H:i'),'/konto/auftraege/'.$orderId]);
-   $this->systemChat($orderId,'Zusätzliche Fotoanforderung wurde erstellt.');Session::flash('success','Spontane Fotoanforderung erstellt.');
+   $this->systemChat($orderId,'Zusätzliche Fotoanforderung wurde erstellt.');$this->notifySeller($orderId,'spontaneous','Neue Fotoanforderung','Für deinen Auftrag wurde eine zusätzliche Fotoanforderung erstellt. Bitte beachte die angezeigte Frist.');Session::flash('success','Spontane Fotoanforderung erstellt.');
   }catch(\Throwable $e){Session::flash('error',$e->getMessage());}
   Response::redirect('/admin/auftraege/'.$orderId);
  }
@@ -25,7 +25,7 @@ final class AdminWorkController{
    $due=new DateTimeImmutable((string)$r->input('due_at'));$config=json_encode(['fields'=>json_decode($tpl['fields_json']?:'[]',true),'photos'=>json_decode($tpl['photos_json']?:'[]',true),'violation'=>json_decode($tpl['violation_json']?:'[]',true)],JSON_UNESCAPED_UNICODE);
    $this->db->prepare("INSERT INTO tasks(order_id,order_component_id,task_template_id,title,description,schedule_type,config_json,created_at) VALUES(?,?,?,?,?,'once',?,NOW())")->execute([$orderId,$componentId,$templateId,$tpl['title'],$tpl['description'],$config]);$task=(int)$this->db->lastInsertId();
    $this->db->prepare("INSERT INTO task_executions(task_id,due_at,grace_ends_at,review_status,created_at) VALUES(?,?,?,'open',NOW())")->execute([$task,$due->format('Y-m-d H:i:s'),$due->modify('+1 hour')->format('Y-m-d H:i:s')]);
-   $this->systemChat($orderId,'Eine Zusatzaufgabe wurde hinzugefügt: '.$tpl['title']);Session::flash('success','Zusatzaufgabe angelegt.');
+   $this->systemChat($orderId,'Eine Zusatzaufgabe wurde hinzugefügt: '.$tpl['title']);$this->notifySeller($orderId,'task','Neue Zusatzaufgabe','Für deinen Auftrag wurde die Zusatzaufgabe „'.$tpl['title'].'“ hinzugefügt.');Session::flash('success','Zusatzaufgabe angelegt.');
   }catch(\Throwable $e){Session::flash('error',$e->getMessage());}
   Response::redirect('/admin/auftraege/'.$orderId);
  }
@@ -35,7 +35,7 @@ final class AdminWorkController{
   $orderId=(int)$p['id'];$caseId=(int)$p['caseId'];$decision=(string)$r->input('decision');$q=$this->db->prepare('SELECT * FROM damage_cases WHERE id=? AND order_id=?');$q->execute([$caseId,$orderId]);$case=$q->fetch();if(!$case)Response::abort(404);
   if($decision==='rejected'){
    $this->db->prepare("UPDATE damage_cases SET status='rejected',decision_note=?,decided_at=NOW() WHERE id=?")->execute([trim((string)$r->input('note')),$caseId]);
-   Session::flash('success','Beschädigung abgelehnt; Auftrag läuft mit demselben Artikel weiter.');
+   $this->notifySeller($orderId,'damage','Beschädigung nicht anerkannt','Die gemeldete Beschädigung wurde nicht anerkannt. Der Auftrag läuft mit demselben Artikel weiter.');Session::flash('success','Beschädigung abgelehnt; Auftrag läuft mit demselben Artikel weiter.');
   }elseif($decision==='recognized'){
    $this->db->beginTransaction();
    try{
@@ -70,7 +70,7 @@ final class AdminWorkController{
     $this->db->prepare("INSERT INTO system_events(seller_id,order_id,event_type,actor_type,actor_id,payload_json,created_at) VALUES(?,?,'order_restarted','admin',?,?,NOW())")->execute([$order['seller_id'],$orderId,$this->auth->admin()['id']??null,json_encode(['damage_case_id'=>$caseId,'run_no'=>$runNo,'options_reset'=>count($activeOptions),'restart_amount'=>$restartAmount],JSON_UNESCAPED_UNICODE)]);
     $this->db->commit();
     $this->systemChat($orderId,'Beschädigung anerkannt. Durchlauf '.$runNo.' beginnt mit neuer Artikelwahl, vollständiger Vorabkontrolle und neu auszuwählenden Optionen. Bereits bestätigte Verstöße und Verlängerungen bleiben historisch erhalten.');
-    Session::flash('success','Beschädigung anerkannt; neuer Durchlauf mit neuer Vorabkontrolle und neuer Optionsauswahl angelegt.');
+    $this->notifySeller($orderId,'damage','Beschädigung anerkannt – Neustart','Die Beschädigung wurde anerkannt. Ein neuer Durchlauf mit neuer Artikelwahl und Vorabkontrolle wurde angelegt.');Session::flash('success','Beschädigung anerkannt; neuer Durchlauf mit neuer Vorabkontrolle und neuer Optionsauswahl angelegt.');
    }catch(\Throwable $e){
     if($this->db->inTransaction())$this->db->rollBack();
     Session::flash('error',$e->getMessage());
@@ -88,6 +88,12 @@ final class AdminWorkController{
   $q=$this->db->prepare($sql);$q->execute([$orderId]);$ids=$q->fetchAll(PDO::FETCH_COLUMN);
   if(count($ids)===1)return (int)$ids[0];
   throw new \RuntimeException('Bei einem Kombi-Auftrag muss der betroffene Bestandteil ausgewählt werden.');
+ }
+ private function notifySeller(int $orderId,string $type,string $title,string $message):void{
+  try{
+   $q=$this->db->prepare('SELECT seller_id FROM orders WHERE id=?');$q->execute([$orderId]);$sellerId=(int)$q->fetchColumn();if(!$sellerId)return;
+   $config=require $this->root.'/config/app.php';(new NotificationService($this->db,new Mailer($config)))->seller($sellerId,$type,$title,$message,'/konto/auftraege/'.$orderId,true);
+  }catch(\Throwable){}
  }
  private function systemChat(int $orderId,string $message):void{$q=$this->db->prepare('SELECT id FROM chats WHERE order_id=?');$q->execute([$orderId]);if($id=$q->fetchColumn())$this->db->prepare("INSERT INTO chat_messages(chat_id,sender_type,message,created_at) VALUES(?,'system',?,NOW())")->execute([$id,$message]);}
  private function ensureViolation(int $orderId,string $type,string $sourceType,int $sourceId,string $desc,?int $orderComponentId=null):void{$q=$this->db->prepare('SELECT id FROM violations WHERE order_id=? AND violation_type=? AND source_type=? AND source_id=?');$q->execute([$orderId,$type,$sourceType,$sourceId]);if($q->fetch())return;$this->db->prepare("INSERT INTO violations(order_id,order_component_id,violation_type,source_type,source_id,description,status,provisional_extension,created_at) VALUES(?,?,?,?,?,?,'open',1,NOW())")->execute([$orderId,$orderComponentId,$type,$sourceType,$sourceId,$desc]);$v=(int)$this->db->lastInsertId();$this->db->prepare("INSERT INTO extension_days(order_id,order_component_id,violation_id,source_type,source_id,reason,is_provisional,is_paid,created_at) VALUES(?,?,?,'violation',?,?,1,0,NOW())")->execute([$orderId,$orderComponentId,$v,$sourceId,$desc]);}

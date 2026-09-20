@@ -195,6 +195,10 @@ final class OperationsController
             $q = $this->db->prepare("SELECT pr.id,'payout' result_type,CONCAT('Auszahlung ',FORMAT(pr.net_amount,2),' EUR') title,CONCAT(se.email,' · ',pr.status) subtitle,'/admin/auszahlungen' url FROM payout_requests pr JOIN sellers se ON se.id=pr.seller_id WHERE se.email LIKE ? OR CAST(pr.id AS CHAR) LIKE ? LIMIT 20");
             $q->execute([$like, $like]);
             $this->append($results, $q->fetchAll());
+
+            $q = $this->db->prepare("SELECT id,'support' result_type,CONCAT(ticket_number,' · ',subject) title,CONCAT(name,' · ',email,' · ',status) subtitle,CONCAT('/admin/support/',id) url FROM support_tickets WHERE ticket_number LIKE ? OR subject LIKE ? OR name LIKE ? OR email LIKE ? LIMIT 20");
+            $q->execute([$like,$like,$like,$like]);
+            $this->append($results,$q->fetchAll());
         }
 
         View::render($this->root, 'admin/search', [

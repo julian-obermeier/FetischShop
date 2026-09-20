@@ -23,6 +23,7 @@ use App\Http\Controllers\DigitalController;
 use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\CronController;
 use App\Http\Controllers\AdminCategoryController;
+use App\Http\Controllers\SupportController;
 
 final class App
 {
@@ -122,6 +123,7 @@ final class App
             $operations = new OperationsController($this->root, $db);
             $cron = new CronController($this->root, $db);
             $adminCategories = new AdminCategoryController($this->root, $db);
+            $support = new SupportController($this->root, $db, $auth);
 
             $router->get('/cron/{token}', [$cron, 'run']);
             $router->get('/media/evidence/{id}', [$media, 'evidence']);
@@ -132,7 +134,8 @@ final class App
             $router->get('/angebote/{id}', [$public, 'offer']);
             $router->get('/so-funktioniert-es', [$public, 'howItWorks']);
             $router->get('/faq', [$public, 'faq']);
-            $router->get('/kontakt', [$public, 'contact']);
+            $router->get('/kontakt', [$support, 'publicForm']);
+            $router->post('/kontakt', [$support, 'publicSubmit'], [$csrf]);
             $router->get('/impressum', [$public, 'imprint']);
             $router->get('/datenschutz', [$public, 'privacy']);
             $router->get('/bedingungen', [$public, 'terms']);
@@ -162,6 +165,9 @@ final class App
             $router->post('/konto/wallet/auszahlung', [$payouts, 'request'], [$csrf, $sellerOnly]);
             $router->post('/konto/wallet/auszahlung/{id}/zurueckziehen', [$payouts, 'withdraw'], [$csrf, $sellerOnly]);
             $router->get('/konto/benachrichtigungen', [$seller, 'notifications'], [$sellerOnly]);
+            $router->get('/konto/support', [$support, 'sellerIndex'], [$sellerOnly]);
+            $router->get('/konto/support/{id}', [$support, 'sellerShow'], [$sellerOnly]);
+            $router->post('/konto/support/{id}', [$support, 'sellerReply'], [$csrf, $sellerOnly]);
             $router->post('/konto/benachrichtigungen/{id}/gelesen', [$seller, 'markNotificationRead'], [$csrf, $sellerOnly]);
             $router->post('/konto/benachrichtigungen/alle-gelesen', [$seller, 'markAllNotificationsRead'], [$csrf, $sellerOnly]);
             $router->post('/konto/angebote/{id}/annehmen', [$orders, 'acceptOffer'], [$csrf, $verifiedSeller]);
@@ -188,6 +194,10 @@ final class App
             $router->get('/admin/kalender', [$operations, 'calendar'], [$adminOnly]);
             $router->get('/admin/suche', [$operations, 'search'], [$adminOnly]);
             $router->get('/admin/archiv', [$operations, 'archive'], [$adminOnly]);
+            $router->get('/admin/support', [$support, 'adminIndex'], [$adminOnly]);
+            $router->get('/admin/support/{id}', [$support, 'adminShow'], [$adminOnly]);
+            $router->post('/admin/support/{id}/antwort', [$support, 'adminReply'], [$csrf, $adminOnly]);
+            $router->post('/admin/support/{id}/status', [$support, 'adminStatus'], [$csrf, $adminOnly]);
             $router->get('/admin/protokoll', [$operations, 'audit'], [$adminOnly]);
             $router->get('/admin/einstellungen', [$operations, 'settings'], [$adminOnly]);
             $router->get('/admin/system/status', [$operations, 'systemStatus'], [$adminOnly]);

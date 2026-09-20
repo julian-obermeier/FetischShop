@@ -156,8 +156,16 @@ final class OrderService
             }
 
             if ($hasDigital) {
+                $clauseVersion = '2026-09-20';
                 $this->db->prepare('INSERT INTO rights_acceptances(order_id,seller_id,clause_version,accepted_at) VALUES(?,?,?,NOW())')
-                    ->execute([$orderId, $sellerId, '2026-09-20']);
+                    ->execute([$orderId, $sellerId, $clauseVersion]);
+                $digitalQ = $this->db->prepare("SELECT dc.id FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE oc.order_id=?");
+                $digitalQ->execute([$orderId]);
+                foreach ($digitalQ->fetchAll(PDO::FETCH_COLUMN) as $digitalId) {
+                    $this->db->prepare("UPDATE digital_components SET rights_status='consented',updated_at=NOW() WHERE id=?")->execute([$digitalId]);
+                    $this->db->prepare("INSERT INTO digital_rights_events(order_id,digital_component_id,event_type,clause_version,actor_type,actor_id,created_at) VALUES(?,?,'seller_consented',?,'seller',?,NOW())")
+                        ->execute([$orderId, $digitalId, $clauseVersion, $sellerId]);
+                }
             }
 
             $walletQ = $this->db->prepare('SELECT id FROM wallets WHERE seller_id=? FOR UPDATE');

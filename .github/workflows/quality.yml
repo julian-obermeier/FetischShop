@@ -8,13 +8,30 @@ on:
 jobs:
   php-lint:
     runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: fetischshop_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
+          extensions: pdo_mysql,fileinfo,mbstring
           coverage: none
+
       - name: PHP syntax
         shell: bash
         run: |
@@ -22,6 +39,7 @@ jobs:
           while IFS= read -r -d '' file; do
             php -l "$file"
           done < <(find . -type f -name '*.php' -print0)
+
       - name: No unfinished core placeholders
         shell: bash
         run: |
@@ -30,3 +48,64 @@ jobs:
             echo "Unfinished placeholder markers found."
             exit 1
           fi
+
+      - name: Fresh database migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          php <<'PHP'
+          <?php
+          require __DIR__ . '/src/Core/MigrationRunner.php';
+
+          $pdo = new PDO(
+              'mysql:host=127.0.0.1;port=3306;dbname=fetischshop_ci;charset=utf8mb4',
+              'root',
+              'root',
+              [
+                  PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                  PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+              ]
+          );
+
+          $runner = new App\Core\MigrationRunner($pdo, __DIR__);
+          $done = $runner->run();
+
+          if ($runner->pending() !== []) {
+              throw new RuntimeException('Migrationen konnten nicht vollständig ausgeführt werden.');
+          }
+
+          echo 'Applied migrations: ' . count($done) . PHP_EOL;
+          PHP
+
+      - name: Workflow SQL smoke tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          php <<'PHP'
+          <?php
+          require __DIR__ . '/src/Services/SellerScheduleService.php';
+          require __DIR__ . '/src/Services/Mailer.php';
+          require __DIR__ . '/src/Services/SchedulerService.php';
+
+          $pdo = new PDO(
+              'mysql:host=127.0.0.1;port=3306;dbname=fetischshop_ci;charset=utf8mb4',
+              'root',
+              'root',
+              [
+                  PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                  PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+              ]
+          );
+
+          $from = date('Y-m-d H:i:s', strtotime('-1 day'));
+          $to = date('Y-m-d H:i:s', strtotime('+30 days'));
+
+          (new App\Services\SellerScheduleService($pdo))->items(1, $from, $to);
+          $result = (new App\Services\SchedulerService($pdo))->run();
+
+          if (!is_array($result)) {
+              throw new RuntimeException('Scheduler-Smoke-Test lieferte kein Ergebnis.');
+          }
+
+          echo "Workflow SQL smoke tests passed." . PHP_EOL;
+          PHP

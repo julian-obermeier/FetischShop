@@ -25,6 +25,7 @@
 <a class="admin-quick-card" href="/admin/einstellungen"><b>Einstellungen</b><span>Cron, Limits und Plattform</span></a>
 <a class="admin-quick-card" href="/admin/system/status"><b>Systemstatus</b><span>Cron, Migrationen und Umgebung prüfen</span></a>
 <a class="admin-quick-card" href="/admin/system/update"><b>Systemupdate</b><span>Datenbankmigrationen ausführen</span></a>
+<a class="admin-quick-card" href="/admin/support"><b>Support</b><span>Kontaktanfragen und Tickets bearbeiten</span></a>
 </div></aside>
 </div>
 </main>

@@ -6,6 +6,8 @@ use App\Core\Response;
 use App\Core\Session;
 use App\Core\View;
 use App\Core\MigrationRunner;
+use App\Services\Mailer;
+use App\Services\SchedulerService;
 use PDO;
 use DateTimeImmutable;
 use DateInterval;
@@ -343,6 +345,38 @@ final class OperationsController
             'pendingMigrations' => $pending,
             'schedulerResult' => json_decode((string)($runtime['scheduler_last_result']['setting_value'] ?? '{}'), true) ?: [],
         ]);
+    }
+
+    public function runCronNow(): void
+    {
+        try {
+            $result=(new SchedulerService($this->db,$this->root))->run();
+            if(!empty($result['locked'])){
+                Session::flash('error','Der Cronjob läuft bereits in einem anderen Prozess.');
+            }else{
+                Session::flash('success','Cronjob wurde manuell ausgeführt. Erinnerungen: '.(int)($result['reminders']??0).', neue Prüffälle: '.((int)($result['evidence_violations']??0)+(int)($result['task_violations']??0)+(int)($result['spontaneous_violations']??0)+(int)($result['damage_violations']??0)+(int)($result['revision_violations']??0)+(int)($result['shipping_violations']??0)).'.');
+            }
+        } catch (\Throwable $e) {
+            Session::flash('error','Cron-Test fehlgeschlagen: '.$e->getMessage());
+        }
+        Response::redirect('/admin/system/status');
+    }
+
+    public function sendTestMail(Request $r): void
+    {
+        $address=trim((string)$r->input('email'));
+        if(!filter_var($address,FILTER_VALIDATE_EMAIL)){
+            Session::flash('error','Bitte eine gültige E-Mail-Adresse für den Test angeben.');
+            Response::redirect('/admin/system/status');
+        }
+        try {
+            $config=require $this->root.'/config/app.php';
+            $ok=(new Mailer($config))->send($address,'FetischShop Test-E-Mail','<h1>E-Mail-Test erfolgreich</h1><p>Diese Nachricht wurde über die produktive FetischShop-Mailkonfiguration versendet.</p><p>Zeitpunkt: '.date('d.m.Y H:i:s').' Europe/Berlin</p>');
+            Session::flash($ok?'success':'error',$ok?'Test-E-Mail wurde an '.$address.' übergeben.':'Die PHP-Mailfunktion hat den Versand nicht bestätigt.');
+        } catch (\Throwable $e) {
+            Session::flash('error','E-Mail-Test fehlgeschlagen: '.$e->getMessage());
+        }
+        Response::redirect('/admin/system/status');
     }
 
     public function settings(): void

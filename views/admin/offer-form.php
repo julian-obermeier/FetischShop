@@ -57,8 +57,14 @@ if(!$steps && !$offer)$steps=[
 <label class="check full"><input type="checkbox" name="is_private" value="1" <?=!empty($offer['is_private'])?'checked':''?>><span>Dieses Angebot ist nur für eine bestimmte Verkäuferin bestimmt.</span></label>
 <label class="full">Verkäuferin<select name="seller_id"><option value="">Keine feste Verkäuferin</option><?php foreach($sellers as $s):?><option value="<?=$s['id']?>" <?=((string)($offer['seller_id']??'')===(string)$s['id'])?'selected':''?>><?=App\Core\View::e($s['last_name'].', '.$s['first_name'].' · '.$s['email'])?></option><?php endforeach;?></select></label>
 <label>Annahmefrist<input name="acceptance_deadline" type="datetime-local" value="<?=!empty($offer['acceptance_deadline'])?date('Y-m-d\TH:i',strtotime($offer['acceptance_deadline'])):''?>"></label>
+<?php if($offer&&!empty($offer['is_private'])): $privateLabels=['pending'=>'Offen','accepted'=>'Angenommen','declined'=>'Abgelehnt','expired'=>'Abgelaufen'];?>
+<div class="full notice"><strong>Aktueller Privatstatus: <?=App\Core\View::e($privateLabels[$offer['private_offer_status']]??($offer['private_offer_status']??'offen'))?></strong><?php if(!empty($offer['declined_reason'])):?><br>Ablehnungsgrund: <?=App\Core\View::e($offer['declined_reason'])?><?php endif;?></div>
+<?php endif;?>
 </div>
 </section>
+<?php if($offer&&!empty($offer['is_private'])&&in_array($offer['private_offer_status']??'',['declined','expired'],true)):?>
+<section class="card full admin-form settings-section"><h3>Privatangebot erneut freigeben</h3><p class="muted">Setzt den Privatstatus wieder auf „Offen“, löscht einen alten Ablehnungsgrund und aktiviert das Angebot mit einer neuen Annahmefrist.</p><form method="post" action="/admin/angebote/<?=$offer['id']?>/privat-erneut-freigeben" class="form-grid"><?=App\Core\Csrf::field()?><label class="full">Neue Annahmefrist<input type="datetime-local" name="acceptance_deadline" required></label><button class="btn primary full">Privatangebot erneut freigeben</button></form></section>
+<?php endif;?>
 
 <section class="card full settings-section">
 <h2>3. Regeln</h2>

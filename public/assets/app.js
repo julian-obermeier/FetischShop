@@ -37,3 +37,18 @@ document.addEventListener('click',e=>{
     if(row)row.remove();
   }
 });
+
+document.addEventListener('click',e=>{
+  const menu=e.target.closest('[data-seller-menu]');
+  if(menu){
+    const sidebar=document.getElementById('seller-sidebar');
+    if(sidebar)sidebar.classList.toggle('open');
+    let backdrop=document.querySelector('.seller-sidebar-backdrop');
+    if(!backdrop){backdrop=document.createElement('div');backdrop.className='seller-sidebar-backdrop';document.body.appendChild(backdrop);}
+    backdrop.classList.toggle('open',sidebar&&sidebar.classList.contains('open'));
+  }
+  if(e.target.classList.contains('seller-sidebar-backdrop')){
+    document.getElementById('seller-sidebar')?.classList.remove('open');
+    e.target.classList.remove('open');
+  }
+});

@@ -15,6 +15,7 @@ $assetVersion = (string) max(
 $isSellerArea = !$isAdmin && $isSeller && (
     $currentPath === '/konto' || str_starts_with($currentPath, '/konto/')
     || $currentPath === '/angebote' || str_starts_with($currentPath, '/angebote/')
+    || $currentPath === '/kontakt'
 );
 
 function adminNavActive(string $currentPath, string $href): string {
@@ -96,7 +97,7 @@ function sellerNavActive(string $currentPath, string $href): string {
 <a class="seller-nav-link<?=str_starts_with($currentPath,'/angebote')?' active':''?>" href="/angebote"><span>◆</span>Neue Angebote</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/wallet')?>" href="/konto/wallet"><span>€</span>Wallet & Auszahlung</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/benachrichtigungen')?>" href="/konto/benachrichtigungen"><span>●</span><span class="seller-nav-text">Benachrichtigungen</span><?php if($sellerUnread>0):?><em class="seller-nav-badge"><?=$sellerUnread>99?'99+':$sellerUnread?></em><?php endif;?></a>
-<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/support')?>" href="/konto/support"><span>?</span><span class="seller-nav-text">Support</span></a>
+<a class="seller-nav-link<?=($currentPath==='/kontakt'||str_starts_with($currentPath,'/konto/support'))?' active':''?>" href="/konto/support"><span>?</span><span class="seller-nav-text">Support</span></a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/profil')?>" href="/konto/profil"><span>♙</span>Mein Profil</a>
 </nav>
 <div class="seller-sidebar-foot"><form method="post" action="/logout"><?=App\Core\Csrf::field()?><button type="submit">Abmelden</button></form></div>

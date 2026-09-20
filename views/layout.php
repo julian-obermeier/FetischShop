@@ -6,7 +6,10 @@ $pageTitle = $pageTitle ?? 'FetischShop';
 $isAdmin = (bool) Session::get('admin_id');
 $isSeller = (bool) Session::get('seller_id');
 $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-$isSellerArea = !$isAdmin && $isSeller && ($currentPath === '/konto' || str_starts_with($currentPath, '/konto/'));
+$isSellerArea = !$isAdmin && $isSeller && (
+    $currentPath === '/konto' || str_starts_with($currentPath, '/konto/')
+    || $currentPath === '/angebote' || str_starts_with($currentPath, '/angebote/')
+);
 
 function adminNavActive(string $currentPath, string $href): string {
     if ($href === '/admin') return $currentPath === '/admin' ? ' active' : '';
@@ -82,7 +85,7 @@ function sellerNavActive(string $currentPath, string $href): string {
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto')?>" href="/konto"><span>⌂</span>Übersicht</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/auftraege')?>" href="/konto/auftraege"><span>▥</span>Meine Aufträge</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/fristen')?>" href="/konto/fristen"><span>◷</span>Fristen & Kalender</a>
-<a class="seller-nav-link" href="/angebote"><span>◆</span>Neue Angebote</a>
+<a class="seller-nav-link<?=str_starts_with($currentPath,'/angebote')?' active':''?>" href="/angebote"><span>◆</span>Neue Angebote</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/wallet')?>" href="/konto/wallet"><span>€</span>Wallet & Auszahlung</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/benachrichtigungen')?>" href="/konto/benachrichtigungen"><span>●</span>Benachrichtigungen</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/profil')?>" href="/konto/profil"><span>♙</span>Mein Profil</a>

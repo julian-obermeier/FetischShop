@@ -396,6 +396,26 @@ final class OrderService
             }
 
             $config = json_decode($offerTask['config_json'] ?: '[]', true) ?: [];
+            $template = null;
+            if ($offerTask['task_template_id'] !== null) {
+                $templateQ = $this->db->prepare('SELECT * FROM task_templates WHERE id=?');
+                $templateQ->execute([(int) $offerTask['task_template_id']]);
+                $template = $templateQ->fetch() ?: null;
+                if ($template) {
+                    if (empty($config['fields'])) {
+                        $config['fields'] = json_decode($template['fields_json'] ?: '[]', true) ?: [];
+                    }
+                    if (empty($config['photos'])) {
+                        $config['photos'] = json_decode($template['photos_json'] ?: '[]', true) ?: [];
+                    }
+                    if (empty($config['violation'])) {
+                        $config['violation'] = json_decode($template['violation_json'] ?: '[]', true) ?: [];
+                    }
+                    if (empty($config['description']) && !empty($template['description'])) {
+                        $config['description'] = $template['description'];
+                    }
+                }
+            }
             $description = trim((string) ($config['description'] ?? ''));
             $scheduleType = (string) ($config['schedule_type'] ?? 'once');
             if (!in_array($scheduleType, ['once', 'recurring', 'interval'], true)) {

@@ -113,11 +113,14 @@ final class SchedulerService
 
     private function tasks(): int
     {
-        $q = $this->db->query("SELECT te.id,t.order_id,t.order_component_id FROM task_executions te JOIN tasks t ON t.id=te.task_id WHERE te.grace_ends_at<NOW() AND te.submitted_at IS NULL AND te.review_status='open' AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE te.grace_ends_at BETWEEN po.starts_at AND po.ends_at)");
+        $q = $this->db->query("SELECT te.id,t.order_id,t.order_component_id,t.config_json FROM task_executions te JOIN tasks t ON t.id=te.task_id WHERE te.grace_ends_at<NOW() AND te.submitted_at IS NULL AND te.review_status='open' AND NOT EXISTS(SELECT 1 FROM platform_outages po WHERE te.grace_ends_at BETWEEN po.starts_at AND po.ends_at)");
         $made = 0;
 
         foreach ($q->fetchAll() as $x) {
-            if ($this->ensureViolation((int) $x['order_id'], 'task_not_completed', 'task_execution', (int) $x['id'], 'Zusatzaufgabe wurde innerhalb der Frist und Nachfrist nicht vollständig eingereicht.', true, $x['order_component_id'] ? (int) $x['order_component_id'] : null)) {
+            $config = json_decode($x['config_json'] ?: '{}', true) ?: [];
+            $violation = $config['violation'] ?? [];
+            $createViolation = ($violation['missing'] ?? 'one_violation') !== 'none';
+            if ($createViolation && $this->ensureViolation((int) $x['order_id'], 'task_not_completed', 'task_execution', (int) $x['id'], 'Zusatzaufgabe wurde innerhalb der Frist und Nachfrist nicht vollständig eingereicht.', true, $x['order_component_id'] ? (int) $x['order_component_id'] : null)) {
                 $made++;
             }
             $this->db->prepare("UPDATE task_executions SET review_status='overdue' WHERE id=?")->execute([$x['id']]);

@@ -329,9 +329,11 @@ final class ShippingController
             }
 
             if ($decision === 'rejected') {
+                $this->db->prepare("UPDATE order_adjustments SET status='cancelled',cancelled_at=COALESCE(cancelled_at,NOW()) WHERE order_id=? AND status='reserved'")->execute([$orderId]);
                 $this->db->prepare("UPDATE orders SET status='rejected',phase='archive',finished_at=NOW(),archived_at=NOW(),updated_at=NOW() WHERE id=?")->execute([$orderId]);
                 $this->db->prepare('UPDATE chats SET is_readonly=1 WHERE order_id=?')->execute([$orderId]);
             } else {
+                $this->db->prepare("UPDATE order_adjustments SET status='released' WHERE order_id=? AND status='reserved'")->execute([$orderId]);
                 $this->db->prepare("UPDATE orders SET status='completed',phase='payout',finished_at=NOW(),updated_at=NOW() WHERE id=?")->execute([$orderId]);
             }
 

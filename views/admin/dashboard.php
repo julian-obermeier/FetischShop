@@ -8,7 +8,8 @@
  ['violations','Verstöße','Entscheidung offen','/admin/entscheidungen?type=Verstoß'],
  ['damage','Beschädigungen','In Bearbeitung','/admin/entscheidungen?type=Beschädigung'],
  ['revisions','Revisionen','Offene Runden','/admin/entscheidungen?type=Revision'],
- ['payouts','Auszahlungen','Offen / in Prüfung','/admin/auszahlungen']
+ ['payouts','Auszahlungen','Offen / in Prüfung','/admin/auszahlungen'],
+ ['support','Support','Offen / wartet auf Admin','/admin/support']
 ];foreach($stats as [$k,$label,$sub,$url]):?><a class="admin-stat" href="<?=$url?>"><span><?=App\Core\View::e($label)?></span><strong><?= (int)$counts[$k] ?></strong><small><?=App\Core\View::e($sub)?></small></a><?php endforeach;?>
 </div>
 

@@ -81,6 +81,7 @@ function sellerNavActive(string $currentPath, string $href): string {
 <nav class="seller-sidebar-nav">
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto')?>" href="/konto"><span>⌂</span>Übersicht</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/auftraege')?>" href="/konto/auftraege"><span>▥</span>Meine Aufträge</a>
+<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/fristen')?>" href="/konto/fristen"><span>◷</span>Fristen & Kalender</a>
 <a class="seller-nav-link" href="/angebote"><span>◆</span>Neue Angebote</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/wallet')?>" href="/konto/wallet"><span>€</span>Wallet & Auszahlung</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/benachrichtigungen')?>" href="/konto/benachrichtigungen"><span>●</span>Benachrichtigungen</a>
@@ -100,7 +101,7 @@ function sellerNavActive(string $currentPath, string $href): string {
 <nav class="seller-mobile-nav">
 <a class="<?=sellerNavActive($currentPath,'/konto')?>" href="/konto"><span>⌂</span><small>Start</small></a>
 <a class="<?=sellerNavActive($currentPath,'/konto/auftraege')?>" href="/konto/auftraege"><span>▥</span><small>Aufträge</small></a>
-<a href="/angebote"><span>◆</span><small>Angebote</small></a>
+<a class="<?=sellerNavActive($currentPath,'/konto/fristen')?>" href="/konto/fristen"><span>◷</span><small>Fristen</small></a>
 <a class="<?=sellerNavActive($currentPath,'/konto/wallet')?>" href="/konto/wallet"><span>€</span><small>Wallet</small></a>
 <a class="<?=sellerNavActive($currentPath,'/konto/profil')?>" href="/konto/profil"><span>♙</span><small>Profil</small></a>
 </nav>

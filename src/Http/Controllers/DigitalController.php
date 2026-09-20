@@ -7,6 +7,8 @@ use App\Core\Response;
 use App\Core\Session;
 use App\Services\PrivateStorage;
 use App\Services\OrderLifecycleService;
+use App\Services\NotificationService;
+use App\Services\Mailer;
 use PDO;
 use RuntimeException;
 use DateTimeImmutable;
@@ -192,7 +194,7 @@ final class DigitalController
 
         try {
             $this->db->beginTransaction();
-            $q = $this->db->prepare("SELECT dc.*,oc.order_id,oc.id order_component_id FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE dc.id=? AND oc.order_id=? FOR UPDATE");
+            $q = $this->db->prepare("SELECT dc.*,oc.order_id,oc.id order_component_id,o.seller_id FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id JOIN orders o ON o.id=oc.order_id WHERE dc.id=? AND oc.order_id=? FOR UPDATE");
             $q->execute([$componentId, $orderId]);
             $component = $q->fetch();
             if (!$component) {
@@ -235,8 +237,10 @@ final class DigitalController
                     throw new RuntimeException('Bitte mindestens einen konkreten Änderungspunkt angeben.');
                 }
 
-                $this->db->prepare("UPDATE digital_components SET status='revision_required',review_note=?,reviewed_at=NOW(),updated_at=NOW() WHERE id=?")
+                $this->db->prepare("UPDATE digital_components SET status='revision_required',rights_status='consented',review_note=?,reviewed_at=NOW(),updated_at=NOW() WHERE id=?")
                     ->execute([trim((string) $r->input('note')) ?: null, $componentId]);
+                $this->db->prepare("INSERT INTO digital_rights_events(order_id,digital_component_id,event_type,actor_type,actor_id,note,created_at) VALUES(?,?,'revision_requested','admin',?,?,NOW())")
+                    ->execute([$orderId,$componentId,$this->auth->admin()['id']??null,trim((string)$r->input('note'))?:null]);
                 $this->db->prepare("UPDATE orders SET status='running',phase='execution',updated_at=NOW() WHERE id=?")->execute([$orderId]);
                 $this->systemChat($orderId, 'Revision für einen digitalen Bestandteil angefordert. Runde ' . $roundNo . '.');
             } else {
@@ -253,8 +257,11 @@ final class DigitalController
                 }
 
                 $status = $decision;
-                $this->db->prepare('UPDATE digital_components SET status=?,approved_amount=?,review_note=?,reviewed_at=NOW(),updated_at=NOW() WHERE id=?')
-                    ->execute([$status, $approved, trim((string) $r->input('note')) ?: null, $componentId]);
+                $rightsStatus = in_array($decision,['accepted','partially_accepted'],true) ? 'granted' : 'not_granted';
+                $this->db->prepare('UPDATE digital_components SET status=?,rights_status=?,approved_amount=?,review_note=?,reviewed_at=NOW(),updated_at=NOW() WHERE id=?')
+                    ->execute([$status, $rightsStatus, $approved, trim((string) $r->input('note')) ?: null, $componentId]);
+                $this->db->prepare("INSERT INTO digital_rights_events(order_id,digital_component_id,event_type,actor_type,actor_id,note,created_at) VALUES(?,?,?,'admin',?,?,NOW())")
+                    ->execute([$orderId,$componentId,$rightsStatus==='granted'?'rights_granted':'rights_not_granted',$this->auth->admin()['id']??null,trim((string)$r->input('note'))?:null]);
 
                 $activeRound = $this->db->prepare("SELECT id FROM revision_rounds WHERE digital_component_id=? AND status IN('open','submitted') ORDER BY round_no DESC LIMIT 1");
                 $activeRound->execute([$componentId]);
@@ -269,6 +276,7 @@ final class DigitalController
             }
 
             $this->db->commit();
+            $this->notifySeller($component['seller_id'], $orderId, $decision, $component);
             Session::flash('success', 'Digitale Prüfentscheidung gespeichert.');
         } catch (\Throwable $e) {
             if ($this->db->inTransaction()) {
@@ -293,6 +301,23 @@ final class DigitalController
         $q->execute([$status, $itemId, $orderId]);
         Session::flash('success', 'Revisionspunkt aktualisiert.');
         Response::redirect('/admin/auftraege/' . $orderId);
+    }
+
+    private function notifySeller(int $sellerId, int $orderId, string $decision, array $component): void
+    {
+        try {
+            $config = require $this->root . '/config/app.php';
+            $notifications = new NotificationService($this->db, new Mailer($config));
+            $map = [
+                'revision' => ['Revision erforderlich', 'Für eine digitale Abgabe wurden Änderungen angefordert. Bitte öffne den Auftrag und bearbeite die Revisionspunkte.'],
+                'accepted' => ['Digitale Abgabe akzeptiert', 'Deine digitale Abgabe wurde vollständig akzeptiert.'],
+                'partially_accepted' => ['Digitale Abgabe teilweise akzeptiert', 'Deine digitale Abgabe wurde teilweise akzeptiert. Den freigegebenen Betrag siehst du im Auftrag.'],
+                'rejected' => ['Digitale Abgabe abgelehnt', 'Deine digitale Abgabe wurde nach der Prüfung abgelehnt. Weitere Informationen findest du im Auftrag.'],
+            ];
+            [$title,$message] = $map[$decision] ?? ['Digitale Prüfung aktualisiert','Der Status deiner digitalen Abgabe wurde aktualisiert.'];
+            $notifications->seller($sellerId,'digital_review',$title,$message,'/konto/auftraege/'.$orderId,true);
+        } catch (\Throwable) {
+        }
     }
 
     private function refreshDigitalOrderComponent(int $orderComponentId): void

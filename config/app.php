@@ -1,5 +1,5 @@
 <?php
-return [
+$base=[
 'name'=>'FetischShop',
 'timezone'=>'Europe/Berlin',
 'currency'=>'EUR',
@@ -10,3 +10,6 @@ return [
 'mail_from'=>'noreply@localhost',
 'mail_from_name'=>'FetischShop',
 ];
+$runtimeFile=__DIR__.'/runtime.php';
+if(is_file($runtimeFile))$base=array_replace($base,require $runtimeFile);
+return $base;

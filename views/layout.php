@@ -115,7 +115,7 @@ function sellerNavActive(string $currentPath, string $href): string {
 <?php if($m=Session::pullFlash('success')):?><div class="flash success"><?=View::e($m)?></div><?php endif;?>
 <?php if($m=Session::pullFlash('error')):?><div class="flash danger"><?=View::e($m)?></div><?php endif;?>
 <?php require $contentView;?>
-<footer class="site-footer"><div><strong>FetischShop</strong><p>Diskrete Ankaufsplattform für volljährige Verkäuferinnen.</p></div><nav><a href="/kontakt">Kontakt</a><a href="/impressum">Impressum</a><a href="/datenschutz">Datenschutz</a><a href="/bedingungen">Bedingungen</a></nav></footer>
+<footer class="site-footer"><div><strong>FetischShop</strong><p>Diskrete Ankaufsplattform für volljährige Verkäuferinnen.</p></div><nav><a href="/regeln">Regeln</a><a href="/kontakt">Kontakt</a><a href="/impressum">Impressum</a><a href="/datenschutz">Datenschutz</a><a href="/bedingungen">Bedingungen</a></nav></footer>
 <?php endif;?>
 <script src="/assets/app.js" defer></script>
 </body>

@@ -62,6 +62,7 @@ function sellerNavActive(string $currentPath, string $href): string {
 <a class="admin-nav-link<?=adminNavActive($currentPath,'/admin/empfaengeradressen')?>" href="/admin/empfaengeradressen"><span>⌖</span>Empfängeradressen</a>
 <a class="admin-nav-link<?=adminNavActive($currentPath,'/admin/archiv')?>" href="/admin/archiv"><span>▤</span>Archiv</a>
 <a class="admin-nav-link<?=adminNavActive($currentPath,'/admin/protokoll')?>" href="/admin/protokoll"><span>≡</span>Protokoll</a>
+<a class="admin-nav-link<?=adminNavActive($currentPath,'/admin/support')?>" href="/admin/support"><span>?</span>Support</a>
 </div>
 <div class="admin-nav-group"><span class="admin-nav-label">System</span>
 <a class="admin-nav-link<?=adminNavActive($currentPath,'/admin/einstellungen')?>" href="/admin/einstellungen"><span>⚙</span>Einstellungen</a>
@@ -95,6 +96,7 @@ function sellerNavActive(string $currentPath, string $href): string {
 <a class="seller-nav-link<?=str_starts_with($currentPath,'/angebote')?' active':''?>" href="/angebote"><span>◆</span>Neue Angebote</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/wallet')?>" href="/konto/wallet"><span>€</span>Wallet & Auszahlung</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/benachrichtigungen')?>" href="/konto/benachrichtigungen"><span>●</span><span class="seller-nav-text">Benachrichtigungen</span><?php if($sellerUnread>0):?><em class="seller-nav-badge"><?=$sellerUnread>99?'99+':$sellerUnread?></em><?php endif;?></a>
+<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/support')?>" href="/konto/support"><span>?</span><span class="seller-nav-text">Support</span></a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/profil')?>" href="/konto/profil"><span>♙</span>Mein Profil</a>
 </nav>
 <div class="seller-sidebar-foot"><form method="post" action="/logout"><?=App\Core\Csrf::field()?><button type="submit">Abmelden</button></form></div>

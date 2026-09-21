@@ -708,7 +708,7 @@ final class OrderService
                 return;
             }
 
-            $componentsQ = $this->db->prepare("SELECT oc.*,c.name category_name FROM order_components oc JOIN categories c ON c.id=oc.category_id WHERE oc.order_id=? ORDER BY oc.sort_order,oc.id");
+            $componentsQ = $this->db->prepare("SELECT oc.*,c.name category_name,ooi.title source_offer_title FROM order_components oc JOIN categories c ON c.id=oc.category_id LEFT JOIN order_offer_items ooi ON ooi.id=oc.order_offer_item_id WHERE oc.order_id=? ORDER BY oc.sort_order,oc.id");
             $componentsQ->execute([$orderId]);
             $components = $componentsQ->fetchAll();
 

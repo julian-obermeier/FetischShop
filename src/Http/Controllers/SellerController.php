@@ -179,8 +179,9 @@ final class SellerController
         $params=[(int)$s['id']];
 
         if ($term !== '') {
-            $where[]='(o.order_number LIKE ? OR ov.title LIKE ?)';
+            $where[]='(o.order_number LIKE ? OR ov.title LIKE ? OR EXISTS(SELECT 1 FROM order_offer_items ooi WHERE ooi.order_id=o.id AND ooi.title LIKE ?))';
             $like='%'.$term.'%';
+            $params[]=$like;
             $params[]=$like;
             $params[]=$like;
         }
@@ -194,7 +195,8 @@ final class SellerController
         }
 
         $sql="SELECT o.*,ov.title,
-            (SELECT COUNT(*) FROM order_components oc WHERE oc.order_id=o.id) component_count
+            (SELECT COUNT(*) FROM order_components oc WHERE oc.order_id=o.id) component_count,
+            (SELECT COUNT(*) FROM order_offer_items ooi WHERE ooi.order_id=o.id) offer_count
             FROM orders o
             JOIN offer_versions ov ON ov.id=o.offer_version_id
             WHERE ".implode(' AND ',$where)." ORDER BY o.created_at DESC";
@@ -211,7 +213,10 @@ final class SellerController
 
         View::render($this->root,'seller/orders',[
             'pageTitle'=>'Meine Aufträge',
-            'orders'=>$q->fetchAll(),
+            'orders'=>array_map(static function(array $order):array{
+                if((int)($order['offer_count']??0)>1)$order['title']='Sammelauftrag · '.(int)$order['offer_count'].' Angebote';
+                return $order;
+            },$q->fetchAll()),
             'filterTerm'=>$term,
             'filterMode'=>$filter,
             'counts'=>$countsQ->fetch() ?: [],

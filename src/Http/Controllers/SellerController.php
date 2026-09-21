@@ -18,13 +18,16 @@ final class SellerController
         $s = $this->auth->seller();
 
         $ordersQ = $this->db->prepare("SELECT o.*,ov.title,
-            (SELECT COUNT(*) FROM order_components oc WHERE oc.order_id=o.id) component_count
+            (SELECT COUNT(*) FROM order_components oc WHERE oc.order_id=o.id) component_count,
+            (SELECT COUNT(*) FROM order_offer_items ooi WHERE ooi.order_id=o.id) offer_count
             FROM orders o
             JOIN offer_versions ov ON ov.id=o.offer_version_id
             WHERE o.seller_id=? AND o.archived_at IS NULL
             ORDER BY o.updated_at DESC LIMIT 8");
         $ordersQ->execute([$s['id']]);
         $orders = $ordersQ->fetchAll();
+        foreach($orders as &$dashboardOrder){if((int)($dashboardOrder['offer_count']??0)>1)$dashboardOrder['title']='Sammelauftrag · '.(int)$dashboardOrder['offer_count'].' Angebote';}
+        unset($dashboardOrder);
 
         $n = $this->db->prepare("SELECT COUNT(*) FROM notifications WHERE seller_id=? AND read_at IS NULL");
         $n->execute([$s['id']]);
@@ -50,7 +53,10 @@ final class SellerController
 
         $actions = [];
 
-        $precheckQ = $this->db->prepare("SELECT o.id,o.order_number,ov.title,COUNT(*) open_count
+        $precheckQ = $this->db->prepare("SELECT o.id,o.order_number,
+            CASE WHEN (SELECT COUNT(*) FROM order_offer_items ooi WHERE ooi.order_id=o.id)>1
+              THEN CONCAT('Sammelauftrag · ',(SELECT COUNT(*) FROM order_offer_items ooi2 WHERE ooi2.order_id=o.id),' Angebote')
+              ELSE ov.title END title,COUNT(*) open_count
             FROM precheck_requirements pr
             JOIN orders o ON o.id=pr.order_id
             JOIN offer_versions ov ON ov.id=o.offer_version_id

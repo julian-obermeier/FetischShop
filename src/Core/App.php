@@ -74,6 +74,7 @@ final class App
                 $navCounts = (new \App\Services\SellerNavigationService($db))->counts((int) $sellerNav['id']);
                 Session::put('seller_nav_unread', $navCounts['unread']);
                 Session::put('seller_nav_urgent', $navCounts['urgent']);
+                Session::put('seller_nav_cart', $navCounts['cart'] ?? 0);
             }
 
             $csrf = function (Request $r): void {

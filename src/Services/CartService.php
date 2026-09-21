@@ -123,7 +123,13 @@ final class CartService
         $q=$this->db->prepare('SELECT DISTINCT category_id FROM offer_components WHERE offer_version_id=?');
         $q->execute([$versionId]);
         $ids=array_map('intval',$q->fetchAll(PDO::FETCH_COLUMN));
-        if(!$ids && $fallbackCategoryId!==null)$ids[]=$fallbackCategoryId;
+        if(!$ids && $fallbackCategoryId!==null){
+            $ids[]=$fallbackCategoryId;
+        }elseif(!$ids){
+            $fallback=$this->db->prepare("SELECT o.category_id FROM offer_versions ov JOIN offers o ON o.id=ov.offer_id WHERE ov.id=?");
+            $fallback->execute([$versionId]);
+            if($category=$fallback->fetchColumn())$ids[]=(int)$category;
+        }
         return array_values(array_unique($ids));
     }
 

@@ -56,7 +56,7 @@ final class ShippingController
         $addressId = (int) $r->input('recipient_address_id');
         try {
             $this->db->beginTransaction();
-            $q = $this->db->prepare("SELECT o.*,ov.end_workflow_json FROM orders o JOIN offer_versions ov ON ov.id=o.offer_version_id WHERE o.id=? FOR UPDATE");
+            $q = $this->db->prepare("SELECT o.* FROM orders o WHERE o.id=? FOR UPDATE");
             $q->execute([$orderId]);
             $order = $q->fetch();
             if (!$order) {
@@ -98,13 +98,41 @@ final class ShippingController
             $this->db->prepare("INSERT INTO shipping_workflows(order_id,status,recipient_address_id,started_at,created_at) VALUES(?,'active',?,NOW(),NOW())")->execute([$orderId, $addressId]);
             $workflowId = (int) $this->db->lastInsertId();
 
-            $cfg = json_decode($order['end_workflow_json'] ?: '[]', true) ?: [];
-            $steps = $cfg['steps'] ?? $cfg;
+            $steps = [];
+            $sourceQ=$this->db->prepare("SELECT ooi.id,ooi.title,ooi.config_snapshot
+                FROM order_offer_items ooi
+                WHERE ooi.order_id=?
+                  AND EXISTS(SELECT 1 FROM order_components oc WHERE oc.order_offer_item_id=ooi.id AND oc.component_type='physical')
+                ORDER BY ooi.sort_order,ooi.id");
+            $sourceQ->execute([$orderId]);
+            $physicalSources=$sourceQ->fetchAll();
+
+            foreach($physicalSources as $source){
+                $snapshot=json_decode($source['config_snapshot']?:'[]',true)?:[];
+                $cfg=is_array($snapshot['end_workflow']??null)?$snapshot['end_workflow']:[];
+                $sourceSteps=$cfg['steps']??$cfg;
+                if(!is_array($sourceSteps)||!$sourceSteps)continue;
+                foreach($sourceSteps as $sourceStep){
+                    if(!is_array($sourceStep))continue;
+                    if(count($physicalSources)>1){
+                        $sourceStep['title']=trim((string)$source['title']).' · '.trim((string)($sourceStep['title']??'Versandschritt'));
+                    }
+                    $steps[]=$sourceStep;
+                }
+            }
+
+            if(!$physicalSources){
+                $legacy=$this->db->prepare('SELECT end_workflow_json FROM offer_versions WHERE id=?');
+                $legacy->execute([$order['offer_version_id']]);
+                $cfg=json_decode((string)($legacy->fetchColumn()?:'[]'),true)?:[];
+                $steps=$cfg['steps']??$cfg;
+            }
+
             if (!is_array($steps) || !$steps) {
                 $steps = [
-                    ['title' => 'Nutzung beenden / ausziehen', 'instructions' => 'Bestätige, dass die Nutzung beendet wurde.', 'type' => 'checkbox', 'required' => true],
-                    ['title' => 'Artikel dokumentieren', 'instructions' => 'Nimm ein aktuelles Foto des Artikels auf.', 'type' => 'photo', 'required' => true],
-                    ['title' => 'Verpackung dokumentieren', 'instructions' => 'Verpacke den Artikel und fotografiere die verschlossene Verpackung.', 'type' => 'photo', 'required' => true],
+                    ['title' => 'Durchführung beenden', 'instructions' => 'Bestätige, dass alle physischen Bestandteile abgeschlossen sind.', 'type' => 'checkbox', 'required' => true],
+                    ['title' => 'Artikel dokumentieren', 'instructions' => 'Fotografiere die Artikel vor dem Verpacken.', 'type' => 'photo', 'required' => true],
+                    ['title' => 'Verpackung dokumentieren', 'instructions' => 'Fotografiere die verschlossene Versandverpackung.', 'type' => 'photo', 'required' => true],
                     ['title' => 'Versand abschließen', 'instructions' => 'Hinterlege die Trackingnummer oder lade den Einlieferungsbeleg hoch.', 'type' => 'tracking_or_receipt', 'required' => true],
                 ];
             }

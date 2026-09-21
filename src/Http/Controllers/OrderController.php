@@ -55,7 +55,7 @@ final class OrderController{
   $shippingSteps=[];if($shipping){$ss=$this->db->prepare('SELECT * FROM shipping_steps WHERE shipping_workflow_id=? ORDER BY step_no');$ss->execute([$shipping['id']]);$shippingSteps=$ss->fetchAll();}
   $final=$this->db->prepare('SELECT decision,approved_amount,seller_message,decided_at FROM final_reviews WHERE order_id=?');$final->execute([$o['id']]);$final=$final->fetch();
   $orderOptionsQ=$this->db->prepare('SELECT * FROM order_options WHERE order_id=? AND is_active=1 ORDER BY id');$orderOptionsQ->execute([$o['id']]);$orderOptions=$orderOptionsQ->fetchAll();
-  $offerOptionsQ=$this->db->prepare("SELECT * FROM offer_options WHERE offer_version_id=? AND is_active=1 ORDER BY sort_order,id");$offerOptionsQ->execute([$o['offer_version_id']]);$offerOptions=$offerOptionsQ->fetchAll();
+  $offerOptions=[];if(count($orderOffers)<=1){$offerOptionsQ=$this->db->prepare("SELECT * FROM offer_options WHERE offer_version_id=? AND is_active=1 ORDER BY sort_order,id");$offerOptionsQ->execute([$o['offer_version_id']]);$offerOptions=$offerOptionsQ->fetchAll();}
   $adjustQ=$this->db->prepare("SELECT * FROM order_adjustments WHERE order_id=? AND status<>'cancelled' ORDER BY created_at,id");$adjustQ->execute([$o['id']]);$adjustments=$adjustQ->fetchAll();
   $consentQ=$this->db->prepare('SELECT * FROM order_acceptance_consents WHERE order_id=? AND seller_id=? LIMIT 1');$consentQ->execute([$o['id'],$s['id']]);$acceptanceConsent=$consentQ->fetch()?:null;
   $manualQ=$this->db->prepare('SELECT med.*,oc.title component_title FROM manual_extra_days med LEFT JOIN order_components oc ON oc.id=med.order_component_id WHERE med.order_id=? ORDER BY med.created_at,med.id');$manualQ->execute([$o['id']]);$manualExtraDays=$manualQ->fetchAll();
@@ -188,6 +188,7 @@ final class OrderController{
   $this->db->beginTransaction();try{
    $oq=$this->db->prepare('SELECT * FROM orders WHERE id=? AND seller_id=? FOR UPDATE');$oq->execute([$orderId,$seller['id']]);$order=$oq->fetch();if(!$order)Response::abort(404);
    if($order['started_at']||$order['phase']!=='preparation')throw new RuntimeException('Optionen können durch die Verkäuferin nur vor dem Auftragsstart geändert werden.');
+   $sourceCountQ=$this->db->prepare('SELECT COUNT(*) FROM order_offer_items WHERE order_id=?');$sourceCountQ->execute([$orderId]);if((int)$sourceCountQ->fetchColumn()>1)throw new RuntimeException('Bei einem Sammelauftrag werden die Optionen beim gemeinsamen Checkout festgelegt und können danach nicht pauschal geändert werden.');
    $availableQ=$this->db->prepare("SELECT * FROM offer_options WHERE offer_version_id=? AND is_active=1 ORDER BY id");$availableQ->execute([$order['offer_version_id']]);$available=$availableQ->fetchAll();$catalog=[];foreach($available as $op)$catalog[(int)$op['id']]=$op;
    foreach($selected as $id)if(!isset($catalog[$id]))throw new RuntimeException('Mindestens eine ausgewählte Option ist nicht verfügbar.');
    $currentQ=$this->db->prepare('SELECT * FROM order_options WHERE order_id=? AND is_active=1 FOR UPDATE');$currentQ->execute([$orderId]);$current=$currentQ->fetchAll();$currentByOffer=[];foreach($current as $op)$currentByOffer[(int)$op['offer_option_id']]=$op;

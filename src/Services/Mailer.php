@@ -24,10 +24,14 @@ final class Mailer
 
     public function sendOrderConfirmation(string $to, string $name, array $order, array $components, array $options): bool
     {
+        $sourceTitles=array_values(array_unique(array_filter(array_map(static fn(array $component)=>(string)($component['source_offer_title']??''),$components))));
+        $isCombined=count($sourceTitles)>1;
+
         $componentRows = '';
         foreach ($components as $component) {
             $componentRows .= '<tr><td style="padding:8px;border-bottom:1px solid #ddd">'
                 . $this->e((string) $component['title'])
+                . (!empty($component['source_offer_title']) ? '<br><span style="font-size:12px;color:#666">aus ' . $this->e((string)$component['source_offer_title']) . '</span>' : '')
                 . '</td><td style="padding:8px;border-bottom:1px solid #ddd">'
                 . $this->e((string) ($component['category_name'] ?? $component['component_type']))
                 . '</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:right">'
@@ -45,7 +49,7 @@ final class Mailer
 
         $html = '<h1>Auftrag #' . $this->e((string) $order['order_number']) . ' bestätigt</h1>'
             . '<p>Hallo ' . $this->e($name) . ',</p>'
-            . '<p>dein Auftrag wurde verbindlich angelegt. Die bei Annahme geltende Angebotsversion wurde als Snapshot gespeichert.</p>'
+            . '<p>' . ($isCombined ? 'deine ausgewählten Angebote wurden zu einem gemeinsamen Sammelauftrag zusammengeführt.' : 'dein Auftrag wurde verbindlich angelegt.') . ' Alle beim Checkout geltenden Angebotsdaten wurden unveränderlich gespeichert.</p>'
             . '<table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:8px">Bestandteil</th><th style="text-align:left;padding:8px">Kategorie/Typ</th><th style="text-align:right;padding:8px">Vergütung</th></tr></thead><tbody>'
             . $componentRows . '</tbody></table>'
             . ($optionRows !== '' ? '<h2>Ausgewählte Optionen</h2><ul>' . $optionRows . '</ul>' : '')

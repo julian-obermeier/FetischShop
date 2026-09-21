@@ -663,7 +663,17 @@ final class OrderService
 
             $this->db->prepare("UPDATE orders SET status='running',phase='execution',started_at=NOW(),updated_at=NOW() WHERE id=?")->execute([$orderId]);
             $this->db->prepare("UPDATE order_runs SET status='running',started_at=COALESCE(started_at,NOW()) WHERE id=?")->execute([$runId]);
-            $this->instantiateOfferTasks($orderId, (int) $order['offer_version_id'], $now);
+
+            $sourceQ=$this->db->prepare('SELECT id,offer_version_id FROM order_offer_items WHERE order_id=? ORDER BY sort_order,id');
+            $sourceQ->execute([$orderId]);
+            $sources=$sourceQ->fetchAll();
+            if($sources){
+                foreach($sources as $source){
+                    $this->instantiateOfferTasks($orderId,(int)$source['offer_version_id'],$now,(int)$source['id']);
+                }
+            }else{
+                $this->instantiateOfferTasks($orderId,(int)$order['offer_version_id'],$now);
+            }
 
             $chatQ = $this->db->prepare('SELECT id FROM chats WHERE order_id=?');
             $chatQ->execute([$orderId]);

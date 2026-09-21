@@ -8,6 +8,7 @@ $isSeller = (bool) Session::get('seller_id');
 $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $sellerUnread = (int) Session::get('seller_nav_unread', 0);
 $sellerUrgent = (int) Session::get('seller_nav_urgent', 0);
+$sellerCart = (int) Session::get('seller_nav_cart', 0);
 $assetVersion = (string) max(
     @filemtime(dirname(__DIR__) . '/public/assets/app.css') ?: 0,
     @filemtime(dirname(__DIR__) . '/public/assets/app.js') ?: 0
@@ -95,6 +96,7 @@ function sellerNavActive(string $currentPath, string $href): string {
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/auftraege')?>" href="/konto/auftraege"><span>▥</span>Meine Aufträge</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/fristen')?>" href="/konto/fristen"><span>◷</span><span class="seller-nav-text">Fristen & Kalender</span><?php if($sellerUrgent>0):?><em class="seller-nav-badge warn"><?=$sellerUrgent>99?'99+':$sellerUrgent?></em><?php endif;?></a>
 <a class="seller-nav-link<?=str_starts_with($currentPath,'/angebote')?' active':''?>" href="/angebote"><span>◆</span>Angebote</a>
+<a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/warenkorb')?>" href="/konto/warenkorb"><span>🛒</span><span class="seller-nav-text">Warenkorb</span><?php if($sellerCart>0):?><em class="seller-nav-badge"><?=$sellerCart>99?'99+':$sellerCart?></em><?php endif;?></a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/wallet')?>" href="/konto/wallet"><span>€</span>Wallet</a>
 <a class="seller-nav-link<?=sellerNavActive($currentPath,'/konto/benachrichtigungen')?>" href="/konto/benachrichtigungen"><span>●</span><span class="seller-nav-text">Benachrichtigungen</span><?php if($sellerUnread>0):?><em class="seller-nav-badge"><?=$sellerUnread>99?'99+':$sellerUnread?></em><?php endif;?></a>
 <a class="seller-nav-link<?=($currentPath==='/kontakt'||str_starts_with($currentPath,'/konto/support'))?' active':''?>" href="/konto/support"><span>?</span><span class="seller-nav-text">Support</span></a>
@@ -107,6 +109,7 @@ function sellerNavActive(string $currentPath, string $href): string {
 <button class="seller-menu-toggle" type="button" data-seller-menu aria-label="Menü öffnen">☰</button>
 <div><b><?=View::e($pageTitle)?></b><small>Aufträge, Fristen & Auszahlung</small></div>
 <a class="seller-top-alert<?=sellerNavActive($currentPath,'/konto/benachrichtigungen')?>" href="/konto/benachrichtigungen" aria-label="Benachrichtigungen"><span>●</span><?php if($sellerUnread>0):?><em><?=$sellerUnread>99?'99+':$sellerUnread?></em><?php endif;?></a>
+<a class="seller-top-cart" href="/konto/warenkorb" aria-label="Warenkorb">🛒<?php if($sellerCart>0):?><em><?=$sellerCart>99?'99+':$sellerCart?></em><?php endif;?></a>
 <a class="seller-top-offer" href="/angebote">Angebote ansehen</a>
 </header>
 <?php if($m=Session::pullFlash('success')):?><div class="flash success"><?=View::e($m)?></div><?php endif;?>

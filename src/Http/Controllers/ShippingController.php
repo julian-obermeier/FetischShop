@@ -83,6 +83,18 @@ final class ShippingController
                 throw new RuntimeException('Offene Verstöße müssen vor Versandbeginn entschieden werden.');
             }
 
+            $openTasks=$this->db->prepare("SELECT COUNT(*) FROM task_executions te JOIN tasks t ON t.id=te.task_id WHERE t.order_id=? AND te.review_status IN('open','pending')");
+            $openTasks->execute([$orderId]);
+            if((int)$openTasks->fetchColumn()>0){
+                throw new RuntimeException('Alle offenen oder noch nicht geprüften Zusatzaufgaben müssen vor Versandbeginn abgeschlossen sein.');
+            }
+
+            $openDamage=$this->db->prepare("SELECT COUNT(*) FROM damage_cases WHERE order_id=? AND status IN('reported','evidence_requested','under_review')");
+            $openDamage->execute([$orderId]);
+            if((int)$openDamage->fetchColumn()>0){
+                throw new RuntimeException('Offene Beschädigungsvorgänge müssen vor Versandbeginn entschieden werden.');
+            }
+
             $addr = $this->db->prepare('SELECT id FROM recipient_addresses WHERE id=? AND is_active=1');
             $addr->execute([$addressId]);
             if (!$addr->fetchColumn()) {

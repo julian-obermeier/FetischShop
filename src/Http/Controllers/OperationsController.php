@@ -180,8 +180,16 @@ final class OperationsController
             $q->execute([$like, $like, $like, $like]);
             $this->append($results, $q->fetchAll());
 
-            $q = $this->db->prepare("SELECT id,'order' result_type,CONCAT('Auftrag #',order_number) title,CONCAT(status,' · ',phase) subtitle,CONCAT('/admin/auftraege/',id) url FROM orders WHERE order_number LIKE ? LIMIT 20");
-            $q->execute([$like]);
+            $q = $this->db->prepare("SELECT o.id,'order' result_type,CONCAT('Auftrag #',o.order_number) title,
+                CASE WHEN (SELECT COUNT(*) FROM order_offer_items x WHERE x.order_id=o.id)>1
+                  THEN CONCAT('Sammelauftrag · ',(SELECT COUNT(*) FROM order_offer_items y WHERE y.order_id=o.id),' Angebote · ',o.status)
+                  ELSE CONCAT(ov.title,' · ',o.status) END subtitle,
+                CONCAT('/admin/auftraege/',o.id) url
+                FROM orders o
+                JOIN offer_versions ov ON ov.id=o.offer_version_id
+                WHERE o.order_number LIKE ? OR ov.title LIKE ? OR EXISTS(SELECT 1 FROM order_offer_items z WHERE z.order_id=o.id AND z.title LIKE ?)
+                LIMIT 20");
+            $q->execute([$like,$like,$like]);
             $this->append($results, $q->fetchAll());
 
             $q = $this->db->prepare("SELECT id,'offer' result_type,title,CONCAT(status,' · Angebot') subtitle,CONCAT('/admin/angebote/',id,'/bearbeiten') url FROM offers WHERE title LIKE ? LIMIT 20");

@@ -153,7 +153,7 @@ $durationText=trim(($offer['duration_value']??'').' '.($offer['duration_unit']??
 
 <?php if($seller):?>
     <?php if($eligibilityReason):?><button class="btn wide" type="button" disabled>Aktuell nicht verfügbar</button>
-    <?php else:?><button class="btn primary wide offer-accept-button" type="submit">In den Warenkorb</button><?php endif;?>
+    <?php else:?><button class="btn primary wide offer-accept-button" type="submit"><?=$inCart?'Auswahl im Warenkorb aktualisieren':'In den Warenkorb'?></button><?php endif;?>
 <?php else:?><a class="btn primary wide offer-accept-button" href="/login">Anmelden und in den Warenkorb legen</a><?php endif;?>
 </form>
 

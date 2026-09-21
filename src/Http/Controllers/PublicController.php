@@ -1,6 +1,6 @@
 <?php
 namespace App\Http\Controllers;
-use App\Core\Auth;use App\Core\Request;use App\Core\Response;use App\Core\View;use PDO;
+use App\Core\Auth;use App\Core\Request;use App\Core\Response;use App\Core\View;use App\Services\CartService;use PDO;
 final class PublicController{
  public function __construct(private string $root,private PDO $db,private Auth $auth){}
  public function home():void{$offers=$this->db->query("SELECT o.id,o.title,c.name category_name,ov.compensation,ov.duration_value,ov.duration_unit FROM offers o JOIN categories c ON c.id=o.category_id JOIN offer_versions ov ON ov.id=o.current_version_id WHERE o.status='active' AND o.is_private=0 ORDER BY o.updated_at DESC LIMIT 6")->fetchAll();View::render($this->root,'public/home',['pageTitle'=>'FetischShop – diskrete Ankaufsplattform','offers'=>$offers]);}
@@ -13,7 +13,7 @@ final class PublicController{
   $comp=$this->db->prepare("SELECT oc.*,c.name category_name,c.is_digital FROM offer_components oc JOIN categories c ON c.id=oc.category_id WHERE oc.offer_version_id=? ORDER BY oc.sort_order,oc.id");$comp->execute([$offer['current_version_id']]);$components=$comp->fetchAll();
   $taskQ=$this->db->prepare("SELECT * FROM offer_tasks WHERE offer_version_id=? ORDER BY sort_order,id");$taskQ->execute([$offer['current_version_id']]);$offerTasks=$taskQ->fetchAll();
   $hasDigital=(int)$offer['is_digital']===1;foreach($components as $co){if($co['component_type']==='digital'||(int)$co['is_digital']===1){$hasDigital=true;break;}}
-  $eligibilityReason=null;
+  $eligibilityReason=null;$inCart=false;
   if($seller){
    if(empty($seller['email_verified_at']))$eligibilityReason='Bitte bestätige zuerst deine E-Mail-Adresse.';
    elseif($offer['acceptance_deadline']&&strtotime($offer['acceptance_deadline'])<time())$eligibilityReason='Die Annahmefrist für dieses Angebot ist abgelaufen.';
@@ -26,9 +26,16 @@ final class PublicController{
      $block->execute([$seller['id'],$categoryId]);
      if($active=$block->fetchColumn()){$eligibilityReason='Eine Kategorie dieses Angebots ist bereits durch deinen aktiven Auftrag #'.$active.' belegt.';break;}
     }
+    if($eligibilityReason===null){
+     try{
+      $cartService=new CartService($this->db);
+      $inCart=$cartService->contains((int)$seller['id'],(int)$offer['offer_id']);
+      $eligibilityReason=$cartService->categoryConflict((int)$seller['id'],(int)$offer['offer_id'],(int)$offer['current_version_id'],(int)$offer['category_id']);
+     }catch(\Throwable){}
+    }
    }
   }
-  View::render($this->root,'public/offer',['pageTitle'=>$offer['title'],'offer'=>$offer,'options'=>$opt->fetchAll(),'components'=>$components,'offerTasks'=>$offerTasks,'hasDigital'=>$hasDigital,'seller'=>$seller,'eligibilityReason'=>$eligibilityReason]);
+  View::render($this->root,'public/offer',['pageTitle'=>$offer['title'],'offer'=>$offer,'options'=>$opt->fetchAll(),'components'=>$components,'offerTasks'=>$offerTasks,'hasDigital'=>$hasDigital,'seller'=>$seller,'eligibilityReason'=>$eligibilityReason,'inCart'=>$inCart]);
  }
  public function howItWorks():void{View::render($this->root,'public/how',['pageTitle'=>'So funktioniert es']);}
  public function faq():void{View::render($this->root,'public/faq',['pageTitle'=>'FAQ']);}

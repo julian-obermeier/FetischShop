@@ -112,6 +112,27 @@ final class CartService
         }
     }
 
+    public function categoryConflict(int $sellerId,int $offerId,int $versionId,int $fallbackCategoryId): ?string
+    {
+        $wanted=$this->categoryIdsForVersion($versionId,$fallbackCategoryId);
+        $q=$this->db->prepare('SELECT offer_id,offer_version_id FROM cart_items WHERE seller_id=? AND offer_id<>?');
+        $q->execute([$sellerId,$offerId]);
+        foreach($q->fetchAll() as $row){
+            $existing=$this->categoryIdsForVersion((int)$row['offer_version_id'],null);
+            if(array_intersect($wanted,$existing)){
+                return 'Eine Kategorie dieses Angebots ist bereits durch ein anderes Angebot in deinem Warenkorb belegt.';
+            }
+        }
+        return null;
+    }
+
+    public function contains(int $sellerId,int $offerId): bool
+    {
+        $q=$this->db->prepare('SELECT COUNT(*) FROM cart_items WHERE seller_id=? AND offer_id=?');
+        $q->execute([$sellerId,$offerId]);
+        return (int)$q->fetchColumn()>0;
+    }
+
     public function remove(int $sellerId,int $cartItemId): void
     {
         $q=$this->db->prepare('DELETE FROM cart_items WHERE id=? AND seller_id=?');

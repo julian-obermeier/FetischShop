@@ -600,6 +600,45 @@ final class OrderService
             $now = new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin'));
             $startDate = $now->setTime(0, 0);
 
+            $sourceCountQ=$this->db->prepare('SELECT COUNT(*) FROM order_offer_items WHERE order_id=?');
+            $sourceCountQ->execute([$orderId]);
+            $synchronizeEnd=(int)$sourceCountQ->fetchColumn()>1;
+            $componentPlans=[];
+            $commonEndDate=null;
+
+            if($synchronizeEnd){
+                foreach($physical as $planComponent){
+                    if($planComponent['fulfillment_model']!=='days')continue;
+
+                    $planConfig=json_decode($planComponent['config_json']?:'[]',true)?:[];
+                    $planEvidence=$planConfig['evidence']??[];
+                    $planWindows=$planEvidence['windows']??[
+                        ['name'=>'Morgen','start'=>'06:00','end'=>'10:00','required_count'=>1],
+                        ['name'=>'Mittag','start'=>'12:00','end'=>'16:00','required_count'=>1],
+                        ['name'=>'Abend','start'=>'18:00','end'=>'23:59','required_count'=>1],
+                    ];
+
+                    $hasFutureWindow=false;
+                    foreach($planWindows as $window){
+                        [$h,$m]=array_map('intval',explode(':',(string)$window['start']));
+                        if($startDate->setTime($h,$m)>$now){$hasFutureWindow=true;break;}
+                    }
+
+                    $earliestFirst=$hasFutureWindow?$startDate:$startDate->modify('+1 day');
+                    $duration=max(1,(int)$planComponent['duration_value']);
+                    $earliestEnd=$earliestFirst->modify('+'.($duration-1).' day');
+                    if($commonEndDate===null||$earliestEnd>$commonEndDate)$commonEndDate=$earliestEnd;
+
+                    $componentPlans[(int)$planComponent['id']]=[
+                        'config'=>$planConfig,
+                        'windows'=>$planWindows,
+                        'future'=>$hasFutureWindow,
+                        'earliest_first'=>$earliestFirst,
+                        'duration'=>$duration,
+                    ];
+                }
+            }
+
             foreach ($physical as $component) {
                 $config = json_decode($component['config_json'] ?: '[]', true) ?: [];
                 $evidence = $config['evidence'] ?? [];
@@ -625,14 +664,17 @@ final class OrderService
                 $this->db->prepare("UPDATE order_components SET status='running',updated_at=NOW() WHERE id=?")->execute([$component['id']]);
 
                 if ($component['fulfillment_model'] === 'days') {
-                    $first = $future ? $startDate : $startDate->modify('+1 day');
-
-                    if (!$future) {
-                        $this->db->prepare("INSERT INTO order_days(order_id,order_run_id,order_component_id,day_no,calendar_date,day_type,status,created_at) VALUES(?,?,?,NULL,?,'start','active',NOW())")
-                            ->execute([$orderId, $runId, $component['id'], $startDate->format('Y-m-d')]);
+                    $days = max(1, (int) $component['duration_value']);
+                    if($synchronizeEnd&&$commonEndDate!==null){
+                        $first=$commonEndDate->modify('-'.($days-1).' day');
+                    }else{
+                        $first=$future?$startDate:$startDate->modify('+1 day');
                     }
 
-                    $days = max(1, (int) $component['duration_value']);
+                    if(!$future && (!$synchronizeEnd || $first->format('Y-m-d')===$startDate->modify('+1 day')->format('Y-m-d'))){
+                        $this->db->prepare("INSERT INTO order_days(order_id,order_run_id,order_component_id,day_no,calendar_date,day_type,status,created_at) VALUES(?,?,?,NULL,?,'start','active',NOW())")
+                            ->execute([$orderId,$runId,$component['id'],$startDate->format('Y-m-d')]);
+                    }
                     for ($n = 1; $n <= $days; $n++) {
                         $date = $first->modify('+' . ($n - 1) . ' day');
                         $this->db->prepare("INSERT INTO order_days(order_id,order_run_id,order_component_id,day_no,calendar_date,day_type,status,created_at) VALUES(?,?,?,?,?,'regular','planned',NOW())")

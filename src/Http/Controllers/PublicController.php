@@ -13,7 +13,7 @@ final class PublicController{
   $comp=$this->db->prepare("SELECT oc.*,c.name category_name,c.is_digital FROM offer_components oc JOIN categories c ON c.id=oc.category_id WHERE oc.offer_version_id=? ORDER BY oc.sort_order,oc.id");$comp->execute([$offer['current_version_id']]);$components=$comp->fetchAll();
   $taskQ=$this->db->prepare("SELECT * FROM offer_tasks WHERE offer_version_id=? ORDER BY sort_order,id");$taskQ->execute([$offer['current_version_id']]);$offerTasks=$taskQ->fetchAll();
   $hasDigital=(int)$offer['is_digital']===1;foreach($components as $co){if($co['component_type']==='digital'||(int)$co['is_digital']===1){$hasDigital=true;break;}}
-  $eligibilityReason=null;$inCart=false;
+  $eligibilityReason=null;$inCart=false;$cartOptionIds=[];
   if($seller){
    if(empty($seller['email_verified_at']))$eligibilityReason='Bitte bestätige zuerst deine E-Mail-Adresse.';
    elseif($offer['acceptance_deadline']&&strtotime($offer['acceptance_deadline'])<time())$eligibilityReason='Die Annahmefrist für dieses Angebot ist abgelaufen.';
@@ -30,12 +30,13 @@ final class PublicController{
      try{
       $cartService=new CartService($this->db);
       $inCart=$cartService->contains((int)$seller['id'],(int)$offer['offer_id']);
+      if($inCart)$cartOptionIds=$cartService->selectedOptionIds((int)$seller['id'],(int)$offer['offer_id']);
       $eligibilityReason=$cartService->categoryConflict((int)$seller['id'],(int)$offer['offer_id'],(int)$offer['current_version_id'],(int)$offer['category_id']);
      }catch(\Throwable){}
     }
    }
   }
-  View::render($this->root,'public/offer',['pageTitle'=>$offer['title'],'offer'=>$offer,'options'=>$opt->fetchAll(),'components'=>$components,'offerTasks'=>$offerTasks,'hasDigital'=>$hasDigital,'seller'=>$seller,'eligibilityReason'=>$eligibilityReason,'inCart'=>$inCart]);
+  View::render($this->root,'public/offer',['pageTitle'=>$offer['title'],'offer'=>$offer,'options'=>$opt->fetchAll(),'components'=>$components,'offerTasks'=>$offerTasks,'hasDigital'=>$hasDigital,'seller'=>$seller,'eligibilityReason'=>$eligibilityReason,'inCart'=>$inCart,'cartOptionIds'=>$cartOptionIds]);
  }
  public function howItWorks():void{View::render($this->root,'public/how',['pageTitle'=>'So funktioniert es']);}
  public function faq():void{View::render($this->root,'public/faq',['pageTitle'=>'FAQ']);}

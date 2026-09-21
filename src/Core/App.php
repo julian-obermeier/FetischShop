@@ -24,6 +24,7 @@ use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\CronController;
 use App\Http\Controllers\AdminCategoryController;
 use App\Http\Controllers\SupportController;
+use App\Http\Controllers\CartController;
 
 final class App
 {
@@ -125,6 +126,7 @@ final class App
             $cron = new CronController($this->root, $db);
             $adminCategories = new AdminCategoryController($this->root, $db);
             $support = new SupportController($this->root, $db, $auth);
+            $cart = new CartController($this->root, $db, $auth);
 
             $router->get('/cron/{token}', [$cron, 'run']);
             $router->get('/media/evidence/{id}', [$media, 'evidence']);
@@ -169,7 +171,11 @@ final class App
             $router->post('/konto/support/{id}', [$support, 'sellerReply'], [$csrf, $sellerOnly]);
             $router->post('/konto/benachrichtigungen/{id}/gelesen', [$seller, 'markNotificationRead'], [$csrf, $sellerOnly]);
             $router->post('/konto/benachrichtigungen/alle-gelesen', [$seller, 'markAllNotificationsRead'], [$csrf, $sellerOnly]);
-            $router->post('/konto/angebote/{id}/annehmen', [$orders, 'acceptOffer'], [$csrf, $verifiedSeller]);
+            $router->get('/konto/warenkorb', [$cart, 'index'], [$verifiedSeller]);
+            $router->post('/konto/warenkorb/{id}', [$cart, 'add'], [$csrf, $verifiedSeller]);
+            $router->post('/konto/warenkorb/position/{id}/entfernen', [$cart, 'remove'], [$csrf, $verifiedSeller]);
+            $router->post('/konto/warenkorb/checkout', [$cart, 'checkout'], [$csrf, $verifiedSeller]);
+            $router->post('/konto/angebote/{id}/annehmen', [$cart, 'add'], [$csrf, $verifiedSeller]);
             $router->post('/konto/angebote/{id}/ablehnen', [$sellerOffers, 'decline'], [$csrf, $verifiedSeller]);
             $router->get('/konto/auftraege/{id}', [$orders, 'show'], [$verifiedSeller]);
             $router->post('/konto/auftraege/{id}/artikel', [$orders, 'saveItem'], [$csrf, $verifiedSeller]);

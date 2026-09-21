@@ -127,7 +127,7 @@ $durationText=trim(($offer['duration_value']??'').' '.($offer['duration_unit']??
     <?php foreach($options as $op): $req=json_decode($op['requirements_json']?:'{}',true)?:[];$reqText=trim((string)($req['text']??''));?>
         <label class="offer-option-card">
             <div class="offer-option-main">
-                <input type="checkbox" name="options[]" value="<?=$op['id']?>" data-option-price="<?=View::e((string)(float)$op['price'])?>">
+                <input type="checkbox" name="options[]" value="<?=$op['id']?>" data-option-price="<?=View::e((string)(float)$op['price'])?>" <?=in_array((int)$op['id'],$cartOptionIds??[],true)?'checked':''?>>
                 <div>
                     <b><?=View::e($op['name'])?></b>
                     <?php if(trim((string)$op['description'])!==''):?><span><?=View::e($op['description'])?></span><?php endif;?>

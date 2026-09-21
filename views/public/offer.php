@@ -114,15 +114,15 @@ $durationText=trim(($offer['duration_value']??'').' '.($offer['duration_unit']??
 <?php elseif($seller):?>
 <div class="offer-status-banner">
     <span class="offer-status-icon">i</span>
-    <div><strong>Du kannst dieses Angebot aktuell annehmen.</strong><p>Vor dem Absenden kannst du alle Optionen und Bestätigungen in Ruhe prüfen.</p></div>
+    <div><strong>Dieses Angebot kann in deinen Warenkorb.</strong><p>Wähle jetzt deine Optionen. Die verbindlichen Bestätigungen erfolgen erst beim gemeinsamen Checkout.</p></div>
 </div>
 <?php endif;?>
 
-<form method="post" action="/konto/angebote/<?=$offer['offer_id']?>/annehmen" class="accept-box offer-accept-box"><?=Csrf::field()?>
+<form method="post" action="/konto/warenkorb/<?=$offer['offer_id']?>" class="accept-box offer-accept-box"><?=Csrf::field()?>
 
 <?php if($options):?>
 <section class="offer-options-section">
-    <div class="offer-section-heading"><span>⚙</span><div><h2>Optionen</h2><p>Wähle nur die Zusatzleistungen aus, die du übernehmen möchtest.</p></div></div>
+    <div class="offer-section-heading"><span>⚙</span><div><h2>Optionen</h2><p>Wähle die Zusatzleistungen, die für dieses Angebot gelten sollen.</p></div></div>
     <div class="offer-option-list">
     <?php foreach($options as $op): $req=json_decode($op['requirements_json']?:'{}',true)?:[];$reqText=trim((string)($req['text']??''));?>
         <label class="offer-option-card">
@@ -142,50 +142,19 @@ $durationText=trim(($offer['duration_value']??'').' '.($offer['duration_unit']??
 <?php endif;?>
 
 <div class="offer-total-bar" data-offer-total data-base-total="<?=View::e((string)(float)$offer['compensation'])?>">
-    <div><small>Deine aktuelle Vergütung</small><strong data-offer-total-value><?=number_format((float)$offer['compensation'],2,',','.')?> €</strong></div>
+    <div><small>Vergütung für dieses Angebot</small><strong data-offer-total-value><?=number_format((float)$offer['compensation'],2,',','.')?> €</strong></div>
     <span data-offer-option-count>Keine Zusatzoption ausgewählt</span>
 </div>
 
-<section class="offer-consent-group">
-    <div class="offer-section-heading"><span>✓</span><div><h2>Deine Bestätigungen</h2><p>Diese Angaben werden zusammen mit der Auftragsannahme dokumentiert.</p></div></div>
-
-    <label class="offer-confirm-card">
-        <input type="checkbox" name="adult_confirmation" value="1" required>
-        <span><b>Ich bin volljährig.</b><small>Ich bestätige, dass ich mindestens 18 Jahre alt bin und diesen Auftrag selbst annehme.</small></span>
-    </label>
-
-    <label class="offer-confirm-card">
-        <input type="checkbox" name="own_goods_confirmation" value="1" required>
-        <span><b>Nur eigene Artikel und eigene Inhalte</b><small>Ich bestätige, dass die für diesen Auftrag verwendeten Artikel, Fotos, Videos, Audios, Texte und sonstigen Inhalte von mir selbst stammen beziehungsweise von mir selbst erstellt werden.</small></span>
-    </label>
-
-    <label class="offer-confirm-card">
-        <input type="checkbox" name="no_third_parties_confirmation" value="1" required>
-        <span><b>Keine nicht einwilligenden Dritten</b><small>Ich bestätige, dass keine Minderjährigen und keine anderen Personen ohne erforderliche Einwilligung Bestandteil des Auftrags oder der Nachweise sind.</small></span>
-    </label>
-
-<?php if($hasDigital):?>
-    <label class="offer-confirm-card">
-        <input type="checkbox" name="rights_acceptance" value="1" required>
-        <span><b>Rechtevereinbarung für digitale Abgabe bestätigen</b><small>Die Rechte werden erst im Rahmen der abschließenden Prüfung entsprechend der vereinbarten Regelung freigegeben.</small></span>
-    </label>
-<?php endif;?>
-</section>
-
 <div class="offer-binding-note">
-    <span>✓</span>
-    <div><b>Verbindliche Auftragsdaten</b><p>Vergütung, Dauer, Nachweise, Optionen, Versand beziehungsweise digitale Abgabe und mögliche Verlängerungen werden bei der Annahme fest mit diesem Auftrag gespeichert. Spätere Änderungen werden separat dokumentiert.</p></div>
+    <span>🛒</span>
+    <div><b>Mehrere Angebote gemeinsam abschließen</b><p>Du kannst weitere Angebote hinzufügen. Erst im Warenkorb bestätigst du alle Positionen gemeinsam; anschließend entsteht eine einzige Auftragsnummer.</p></div>
 </div>
 
-<label class="offer-confirm-card">
-    <input type="checkbox" name="summary_confirmation" value="1" required>
-    <span><b>Auftrag geprüft</b><small>Ich habe Vergütung, Aufwand, Nachweise, Aufgaben, Optionen, Versand/Abgabe und mögliche Verlängerungstage gelesen und bestätige den Auftrag.</small></span>
-</label>
-
 <?php if($seller):?>
-    <?php if($eligibilityReason):?><button class="btn wide" type="button" disabled>Aktuell nicht annehmbar</button>
-    <?php else:?><button class="btn primary wide offer-accept-button" type="submit">Auftrag verbindlich annehmen</button><?php endif;?>
-<?php else:?><a class="btn primary wide offer-accept-button" href="/login">Anmelden, um Auftrag anzunehmen</a><?php endif;?>
+    <?php if($eligibilityReason):?><button class="btn wide" type="button" disabled>Aktuell nicht verfügbar</button>
+    <?php else:?><button class="btn primary wide offer-accept-button" type="submit">In den Warenkorb</button><?php endif;?>
+<?php else:?><a class="btn primary wide offer-accept-button" href="/login">Anmelden und in den Warenkorb legen</a><?php endif;?>
 </form>
 
 <?php if($seller && !empty($offer['is_private']) && $offer['private_offer_status']==='pending'):?>

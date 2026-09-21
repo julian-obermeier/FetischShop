@@ -90,12 +90,17 @@ final class SellerNavigationService
               AND ss.deadline<=DATE_ADD(NOW(),INTERVAL 24 HOUR)
         ) urgent";
 
+        $cartQ=$this->db->prepare('SELECT COUNT(*) FROM cart_items WHERE seller_id=?');
+        $cartQ->execute([$sellerId]);
+        $cart=(int)$cartQ->fetchColumn();
+
         $urgentQ=$this->db->prepare($urgentSql);
         $urgentQ->execute(array_fill(0,8,$sellerId));
 
         return [
             'unread'=>$unread,
             'urgent'=>(int)($urgentQ->fetchColumn()?:0),
+            'cart'=>$cart,
         ];
     }
 }

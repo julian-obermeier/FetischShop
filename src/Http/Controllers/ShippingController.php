@@ -367,8 +367,8 @@ final class ShippingController
 
                 $failed = $this->db->prepare("SELECT COUNT(*) FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE oc.order_id=? AND dc.status='rejected'");
                 $failed->execute([$orderId]);
-                if ((int) $failed->fetchColumn() > 0 && $decision !== 'rejected') {
-                    throw new RuntimeException('Mindestens ein Bestandteil ist endgültig abgelehnt; der Gesamtauftrag muss daher abgelehnt werden.');
+                if ((int) $failed->fetchColumn() > 0 && $decision === 'accepted') {
+                    throw new RuntimeException('Mindestens ein digitaler Bestandteil wurde abgelehnt. Der Auftrag kann deshalb nur teilweise akzeptiert oder vollständig abgelehnt werden.');
                 }
             }
 

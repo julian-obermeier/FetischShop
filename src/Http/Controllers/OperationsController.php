@@ -298,8 +298,8 @@ final class OperationsController
 
         if($term!==''){
             $like='%'.$term.'%';
-            $where[]="(o.order_number LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ? OR s.email LIKE ? OR ov.title LIKE ?)";
-            array_push($params,$like,$like,$like,$like,$like);
+            $where[]="(o.order_number LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ? OR s.email LIKE ? OR ov.title LIKE ? OR EXISTS(SELECT 1 FROM order_offer_items ooi WHERE ooi.order_id=o.id AND ooi.title LIKE ?))";
+            array_push($params,$like,$like,$like,$like,$like,$like);
         }
         if(in_array($decision,['accepted','partially_accepted','rejected'],true)){
             $where[]='fr.decision=?';$params[]=$decision;
@@ -308,19 +308,19 @@ final class OperationsController
             $where[]='YEAR(COALESCE(o.archived_at,o.finished_at,o.updated_at))=?';$params[]=(int)$year;
         }
 
-        $sql="SELECT o.*,s.first_name,s.last_name,s.email,ov.title,fr.decision,fr.approved_amount
+        $sql="SELECT o.*,s.first_name,s.last_name,s.email,ov.title,(SELECT COUNT(*) FROM order_offer_items ooi WHERE ooi.order_id=o.id) offer_count,fr.decision,fr.approved_amount
             FROM orders o
             JOIN sellers s ON s.id=o.seller_id
             JOIN offer_versions ov ON ov.id=o.offer_version_id
             LEFT JOIN final_reviews fr ON fr.order_id=o.id
             WHERE ".implode(' AND ',$where)."
             ORDER BY COALESCE(o.archived_at,o.finished_at,o.updated_at) DESC";
-        $q=$this->db->prepare($sql);$q->execute($params);
+        $q=$this->db->prepare($sql);$q->execute($params);$archiveRows=$q->fetchAll();foreach($archiveRows as &$archiveRow){if((int)($archiveRow['offer_count']??0)>1)$archiveRow['title']='Sammelauftrag · '.(int)$archiveRow['offer_count'].' Angebote';}unset($archiveRow);
         $years=$this->db->query("SELECT DISTINCT YEAR(COALESCE(archived_at,finished_at,updated_at)) y FROM orders WHERE archived_at IS NOT NULL OR status='rejected' ORDER BY y DESC")->fetchAll(PDO::FETCH_COLUMN);
 
         View::render($this->root,'admin/archive',[
             'pageTitle'=>'Archiv',
-            'orders'=>$q->fetchAll(),
+            'orders'=>$archiveRows,
             'filterTerm'=>$term,
             'filterDecision'=>$decision,
             'filterYear'=>$year,

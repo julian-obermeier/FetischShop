@@ -246,6 +246,311 @@ final class OrderService
         }
     }
 
+    public function acceptCart(int $sellerId, array $cartItems, bool $rightsAccepted = false, array $consents = []): int
+    {
+        if (!$cartItems) {
+            throw new RuntimeException('Dein Warenkorb ist leer.');
+        }
+
+        $this->db->beginTransaction();
+
+        try {
+            $sellerQ = $this->db->prepare("SELECT id,birth_date,email_verified_at,deleted_at FROM sellers WHERE id=? FOR UPDATE");
+            $sellerQ->execute([$sellerId]);
+            $seller = $sellerQ->fetch();
+            if (!$seller || $seller['deleted_at']) {
+                throw new RuntimeException('Verkäuferinnenkonto ist nicht verfügbar.');
+            }
+            if (empty($seller['email_verified_at'])) {
+                throw new RuntimeException('Bitte bestätige zuerst deine E-Mail-Adresse.');
+            }
+
+            $birthDate = new DateTimeImmutable((string)$seller['birth_date'], new DateTimeZone('Europe/Berlin'));
+            $adultDate = (new DateTimeImmutable('today', new DateTimeZone('Europe/Berlin')))->modify('-18 years');
+            if ($birthDate > $adultDate) {
+                throw new RuntimeException('Die Plattform ist ausschließlich für volljährige Verkäuferinnen bestimmt.');
+            }
+
+            if (empty($consents['adult_confirmed']) || empty($consents['own_goods_confirmed']) || empty($consents['no_third_parties_confirmed']) || empty($consents['summary_confirmed'])) {
+                throw new RuntimeException('Bitte bestätige vor dem Checkout alle erforderlichen Angaben.');
+            }
+
+            $packages = [];
+            $categoryIds = [];
+            $hasPhysical = false;
+            $hasDigital = false;
+            $baseTotal = 0.0;
+            $optionsTotal = 0.0;
+
+            foreach ($cartItems as $position => $cartItem) {
+                $offerId = (int)($cartItem['offer_id'] ?? 0);
+                $versionId = (int)($cartItem['offer_version_id'] ?? 0);
+                if ($offerId < 1 || $versionId < 1) {
+                    throw new RuntimeException('Eine Warenkorbposition ist ungültig.');
+                }
+
+                $offerQ = $this->db->prepare("SELECT o.id offer_id,o.current_version_id,o.seller_id private_seller_id,o.is_private,o.private_offer_status,o.acceptance_deadline,o.title offer_public_title,ov.*,c.id category_id,c.name category_name,c.is_digital
+                    FROM offers o
+                    JOIN offer_versions ov ON ov.id=? AND ov.offer_id=o.id
+                    JOIN categories c ON c.id=o.category_id
+                    WHERE o.id=? AND o.status='active'
+                    FOR UPDATE");
+                $offerQ->execute([$versionId,$offerId]);
+                $offer = $offerQ->fetch();
+
+                if (!$offer) {
+                    throw new RuntimeException('Ein Angebot im Warenkorb ist nicht mehr verfügbar.');
+                }
+                if ((int)$offer['current_version_id'] !== $versionId) {
+                    throw new RuntimeException('„'.$offer['title'].'“ wurde seit dem Hinzufügen geändert. Bitte entferne es aus dem Warenkorb und füge die aktuelle Version erneut hinzu.');
+                }
+                if ((int)$offer['is_private'] === 1 && (int)$offer['private_seller_id'] !== $sellerId) {
+                    throw new RuntimeException('Ein Privatangebot im Warenkorb ist nicht für dein Konto bestimmt.');
+                }
+                if ((int)$offer['is_private'] === 1 && (string)($offer['private_offer_status'] ?? 'pending') !== 'pending') {
+                    throw new RuntimeException('Ein Privatangebot im Warenkorb ist nicht mehr annehmbar.');
+                }
+                if ($offer['acceptance_deadline'] && strtotime((string)$offer['acceptance_deadline']) < time()) {
+                    throw new RuntimeException('Die Annahmefrist von „'.$offer['title'].'“ ist abgelaufen.');
+                }
+
+                $componentQ = $this->db->prepare("SELECT oc.*,c.name category_name,c.is_digital category_is_digital
+                    FROM offer_components oc
+                    JOIN categories c ON c.id=oc.category_id
+                    WHERE oc.offer_version_id=?
+                    ORDER BY oc.sort_order,oc.id");
+                $componentQ->execute([$versionId]);
+                $definitions = $componentQ->fetchAll();
+
+                if (!$definitions) {
+                    $definitions = [[
+                        'category_id'=>(int)$offer['category_id'],
+                        'category_name'=>$offer['category_name'],
+                        'category_is_digital'=>(int)$offer['is_digital'],
+                        'component_type'=>(int)$offer['is_digital']===1?'digital':'physical',
+                        'title'=>$offer['title'],
+                        'compensation'=>(float)$offer['compensation'],
+                        'fulfillment_model'=>$offer['fulfillment_model'],
+                        'duration_value'=>$offer['duration_value'],
+                        'duration_unit'=>$offer['duration_unit'],
+                        'config_json'=>json_encode([
+                            'evidence'=>json_decode($offer['evidence_json']?:'[]',true)?:[],
+                            'start_control'=>json_decode($offer['start_control_json']?:'[]',true)?:[],
+                            'shipping'=>json_decode($offer['shipping_json']?:'[]',true)?:[],
+                            'end_workflow'=>json_decode($offer['end_workflow_json']?:'[]',true)?:[],
+                            'settings'=>json_decode($offer['settings_json']?:'[]',true)?:[],
+                        ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+                        'sort_order'=>0,
+                    ]];
+                }
+
+                foreach ($definitions as $definition) {
+                    $categoryId = (int)$definition['category_id'];
+                    if (isset($categoryIds[$categoryId])) {
+                        throw new RuntimeException('Im Warenkorb dürfen nicht mehrere Angebote dieselbe Kategorie belegen.');
+                    }
+                    $categoryIds[$categoryId] = true;
+                    $type = $definition['component_type']==='digital' || (int)($definition['category_is_digital']??0)===1 ? 'digital' : 'physical';
+                    $hasDigital = $hasDigital || $type==='digital';
+                    $hasPhysical = $hasPhysical || $type==='physical';
+                }
+
+                $optionIds = array_values(array_unique(array_filter(array_map('intval',(array)($cartItem['option_ids']??[])))));
+                $selected = [];
+                $itemOptionsTotal = 0.0;
+                if ($optionIds) {
+                    $marks = implode(',',array_fill(0,count($optionIds),'?'));
+                    $op = $this->db->prepare("SELECT * FROM offer_options WHERE offer_version_id=? AND is_active=1 AND id IN($marks)");
+                    $op->execute(array_merge([$versionId],$optionIds));
+                    $selected = $op->fetchAll();
+                    if (count($selected) !== count($optionIds)) {
+                        throw new RuntimeException('Mindestens eine ausgewählte Option ist nicht mehr verfügbar.');
+                    }
+                    foreach ($selected as $option) {
+                        $itemOptionsTotal += (float)$option['price'];
+                    }
+                }
+
+                $snapshot = [
+                    'offer_id'=>$offerId,
+                    'offer_version_id'=>$versionId,
+                    'title'=>$offer['title'],
+                    'description'=>$offer['description'],
+                    'compensation'=>(float)$offer['compensation'],
+                    'fulfillment_model'=>$offer['fulfillment_model'],
+                    'duration_value'=>$offer['duration_value'],
+                    'duration_unit'=>$offer['duration_unit'],
+                    'rules'=>json_decode($offer['rules_json']?:'[]',true)?:[],
+                    'evidence'=>json_decode($offer['evidence_json']?:'[]',true)?:[],
+                    'start_control'=>json_decode($offer['start_control_json']?:'[]',true)?:[],
+                    'shipping'=>json_decode($offer['shipping_json']?:'[]',true)?:[],
+                    'end_workflow'=>json_decode($offer['end_workflow_json']?:'[]',true)?:[],
+                    'violation'=>json_decode($offer['violation_json']?:'[]',true)?:[],
+                    'settings'=>json_decode($offer['settings_json']?:'[]',true)?:[],
+                    'components'=>$definitions,
+                ];
+
+                $packages[] = [
+                    'offer'=>$offer,
+                    'definitions'=>$definitions,
+                    'selected_options'=>$selected,
+                    'snapshot'=>$snapshot,
+                    'options_total'=>$itemOptionsTotal,
+                    'sort_order'=>(int)$position,
+                ];
+                $baseTotal += (float)$offer['compensation'];
+                $optionsTotal += $itemOptionsTotal;
+            }
+
+            foreach (array_keys($categoryIds) as $categoryId) {
+                $block = $this->db->prepare("SELECT ord.order_number FROM orders ord
+                    JOIN order_components oc ON oc.order_id=ord.id
+                    WHERE ord.seller_id=? AND oc.category_id=?
+                      AND ord.status NOT IN('rejected','cancelled','paid','archived')
+                    LIMIT 1 FOR UPDATE");
+                $block->execute([$sellerId,$categoryId]);
+                if ($existing = $block->fetchColumn()) {
+                    throw new RuntimeException('Kategorie bereits durch den aktiven Auftrag #'.$existing.' belegt.');
+                }
+            }
+
+            if ($hasDigital && !$rightsAccepted) {
+                throw new RuntimeException('Bitte bestätige die Rechtevereinbarung für die digitalen Bestandteile.');
+            }
+
+            $number = (new OrderNumberService($this->db))->next();
+            $total = $baseTotal + $optionsTotal;
+            $primary = $packages[0]['offer'];
+            $snapshot = json_encode([
+                'checkout_type'=>count($packages)>1?'multi_offer':'single_offer',
+                'offer_count'=>count($packages),
+                'base_compensation'=>$baseTotal,
+                'options_total'=>$optionsTotal,
+                'total'=>$total,
+                'offers'=>array_map(static fn(array $package)=>$package['snapshot'],$packages),
+            ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+
+            $initialStatus = $hasPhysical ? 'precheck' : 'running';
+            $initialPhase = $hasPhysical ? 'preparation' : 'execution';
+            $startedAtSql = $hasPhysical ? 'NULL' : 'NOW()';
+
+            $insert = $this->db->prepare("INSERT INTO orders(order_number,seller_id,offer_id,offer_version_id,status,phase,accepted_at,started_at,base_compensation,current_total,config_snapshot,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,NOW(),$startedAtSql,?,?,?,NOW(),NOW())");
+            $insert->execute([$number,$sellerId,$primary['offer_id'],$primary['id'],$initialStatus,$initialPhase,$baseTotal,$total,$snapshot]);
+            $orderId = (int)$this->db->lastInsertId();
+
+            $this->db->prepare("INSERT INTO order_acceptance_consents(order_id,seller_id,terms_version,adult_confirmed,own_goods_confirmed,no_third_parties_confirmed,summary_confirmed,rights_confirmed,ip_address,user_agent,accepted_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,NOW())")
+                ->execute([
+                    $orderId,$sellerId,(string)($consents['terms_version']??'2026-09-20'),
+                    1,1,1,1,$rightsAccepted?1:0,
+                    !empty($consents['ip_address'])?(string)$consents['ip_address']:null,
+                    !empty($consents['user_agent'])?(string)$consents['user_agent']:null,
+                ]);
+
+            $this->db->prepare("INSERT INTO order_runs(order_id,run_no,status,started_at,created_at) VALUES(?,1,?,?,NOW())")
+                ->execute([$orderId,$hasPhysical?'preparation':'running',$hasPhysical?null:date('Y-m-d H:i:s')]);
+            $runId = (int)$this->db->lastInsertId();
+
+            $componentSort = 0;
+            foreach ($packages as $package) {
+                $offer = $package['offer'];
+                $this->db->prepare("INSERT INTO order_offer_items(order_id,offer_id,offer_version_id,title,base_compensation,sort_order,config_snapshot,created_at)
+                    VALUES(?,?,?,?,?,?,?,NOW())")
+                    ->execute([$orderId,$offer['offer_id'],$offer['id'],$offer['title'],$offer['compensation'],$package['sort_order'],json_encode($package['snapshot'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+                $orderOfferItemId = (int)$this->db->lastInsertId();
+
+                foreach ($package['definitions'] as $definition) {
+                    $type = $definition['component_type']==='digital' || (int)($definition['category_is_digital']??0)===1 ? 'digital' : 'physical';
+                    $config = json_decode($definition['config_json']?:'[]',true)?:[];
+                    $componentStatus = $type==='digital'?'running':'preparation';
+
+                    $this->db->prepare("INSERT INTO order_components(order_id,order_offer_item_id,category_id,component_type,title,compensation,fulfillment_model,duration_value,duration_unit,status,config_json,sort_order,created_at,updated_at)
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NOW(),NOW())")
+                        ->execute([
+                            $orderId,$orderOfferItemId,(int)$definition['category_id'],$type,(string)$definition['title'],
+                            (float)$definition['compensation'],(string)($definition['fulfillment_model']??'once'),
+                            $definition['duration_value']!==null?(int)$definition['duration_value']:null,
+                            $definition['duration_unit']??null,$componentStatus,
+                            json_encode($config,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$componentSort++,
+                        ]);
+                    $componentId = (int)$this->db->lastInsertId();
+
+                    if ($type==='digital') {
+                        $this->createDigitalParts($componentId,$definition,$config);
+                    } else {
+                        $this->createPrecheckRequirements($orderId,$runId,$componentId,(string)$definition['category_name'],$config);
+                    }
+                }
+
+                foreach ($package['selected_options'] as $option) {
+                    $this->db->prepare("INSERT INTO order_options(order_id,order_offer_item_id,offer_option_id,name,price,config_snapshot,created_at)
+                        VALUES(?,?,?,?,?,?,NOW())")
+                        ->execute([$orderId,$orderOfferItemId,$option['id'],$option['name'],$option['price'],$option['requirements_json']]);
+                }
+
+                if ((int)$offer['is_private']===1) {
+                    $this->db->prepare("UPDATE offers SET private_offer_status='accepted',updated_at=NOW() WHERE id=?")->execute([$offer['offer_id']]);
+                }
+            }
+
+            if ($hasDigital) {
+                $clauseVersion='2026-09-20';
+                $this->db->prepare('INSERT INTO rights_acceptances(order_id,seller_id,clause_version,accepted_at) VALUES(?,?,?,NOW())')
+                    ->execute([$orderId,$sellerId,$clauseVersion]);
+                $digitalQ=$this->db->prepare("SELECT dc.id FROM digital_components dc JOIN order_components oc ON oc.id=dc.order_component_id WHERE oc.order_id=?");
+                $digitalQ->execute([$orderId]);
+                foreach($digitalQ->fetchAll(PDO::FETCH_COLUMN) as $digitalId){
+                    $this->db->prepare("UPDATE digital_components SET rights_status='consented',updated_at=NOW() WHERE id=?")->execute([$digitalId]);
+                    $this->db->prepare("INSERT INTO digital_rights_events(order_id,digital_component_id,event_type,clause_version,actor_type,actor_id,created_at)
+                        VALUES(?,?,'seller_consented',?,'seller',?,NOW())")
+                        ->execute([$orderId,$digitalId,$clauseVersion,$sellerId]);
+                }
+            }
+
+            $walletQ=$this->db->prepare('SELECT id FROM wallets WHERE seller_id=? FOR UPDATE');
+            $walletQ->execute([$sellerId]);
+            $walletId=(int)$walletQ->fetchColumn();
+            if($walletId<1) throw new RuntimeException('Wallet konnte nicht geladen werden.');
+            $this->db->prepare('UPDATE wallets SET balance_reserved=balance_reserved+?,updated_at=NOW() WHERE id=?')->execute([$total,$walletId]);
+            $this->db->prepare("INSERT INTO wallet_entries(wallet_id,order_id,entry_type,status,amount,created_at)
+                VALUES(?,?,'order_reservation','reserved',?,NOW())")->execute([$walletId,$orderId,$total]);
+
+            $this->db->prepare('INSERT INTO chats(order_id,is_readonly,created_at) VALUES(?,0,NOW())')->execute([$orderId]);
+            $chatId=(int)$this->db->lastInsertId();
+            $chatMessage=count($packages)>1
+                ? 'Sammelauftrag #'.$number.' mit '.count($packages).' Angeboten wurde angenommen.'
+                : 'Auftrag #'.$number.' wurde angenommen.';
+            $this->db->prepare("INSERT INTO chat_messages(chat_id,sender_type,message,created_at) VALUES(?,'system',?,NOW())")
+                ->execute([$chatId,$chatMessage]);
+
+            $this->db->prepare("INSERT INTO system_events(seller_id,order_id,event_type,actor_type,actor_id,payload_json,created_at)
+                VALUES(?,?,'order_accepted','seller',?,?,NOW())")
+                ->execute([$sellerId,$orderId,$sellerId,json_encode([
+                    'order_number'=>$number,'total'=>$total,'offer_count'=>count($packages),'components'=>count($categoryIds)
+                ],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+
+            if(!$hasPhysical){
+                $now=new DateTimeImmutable('now',new DateTimeZone('Europe/Berlin'));
+                $sourceQ=$this->db->prepare('SELECT id,offer_version_id FROM order_offer_items WHERE order_id=? ORDER BY sort_order,id');
+                $sourceQ->execute([$orderId]);
+                foreach($sourceQ->fetchAll() as $source){
+                    $this->instantiateOfferTasks($orderId,(int)$source['offer_version_id'],$now,(int)$source['id']);
+                }
+            }
+
+            $this->db->prepare('DELETE FROM cart_items WHERE seller_id=?')->execute([$sellerId]);
+            $this->db->commit();
+            $this->sendOrderConfirmation($orderId);
+            return $orderId;
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
     public function startAfterPrecheck(int $orderId): void
     {
         $this->db->beginTransaction();
@@ -437,7 +742,7 @@ final class OrderService
         }
     }
 
-    private function instantiateOfferTasks(int $orderId, int $offerVersionId, DateTimeImmutable $start): void
+    private function instantiateOfferTasks(int $orderId, int $offerVersionId, DateTimeImmutable $start, ?int $orderOfferItemId = null): void
     {
         $q = $this->db->prepare('SELECT * FROM offer_tasks WHERE offer_version_id=? ORDER BY sort_order,id');
         $q->execute([$offerVersionId]);
@@ -480,8 +785,12 @@ final class OrderService
             if (!empty($config['order_component_id'])) {
                 $componentId = (int) $config['order_component_id'];
             } elseif (!empty($config['category_id'])) {
-                $component = $this->db->prepare('SELECT id FROM order_components WHERE order_id=? AND category_id=? ORDER BY id LIMIT 1');
-                $component->execute([$orderId, (int) $config['category_id']]);
+                $componentSql='SELECT id FROM order_components WHERE order_id=? AND category_id=?';
+                $componentParams=[$orderId,(int)$config['category_id']];
+                if($orderOfferItemId!==null){$componentSql.=' AND order_offer_item_id=?';$componentParams[]=$orderOfferItemId;}
+                $componentSql.=' ORDER BY id LIMIT 1';
+                $component=$this->db->prepare($componentSql);
+                $component->execute($componentParams);
                 $componentId = $component->fetchColumn() ?: null;
             }
 
@@ -491,9 +800,10 @@ final class OrderService
                 'violation' => is_array($config['violation'] ?? null) ? $config['violation'] : [],
             ];
 
-            $this->db->prepare('INSERT INTO tasks(order_id,order_component_id,task_template_id,offer_task_id,title,description,schedule_type,config_json,created_at) VALUES(?,?,?,?,?,?,?,?,NOW())')
+            $this->db->prepare('INSERT INTO tasks(order_id,order_offer_item_id,order_component_id,task_template_id,offer_task_id,title,description,schedule_type,config_json,created_at) VALUES(?,?,?,?,?,?,?,?,?,NOW())')
                 ->execute([
                     $orderId,
+                    $orderOfferItemId,
                     $componentId,
                     $offerTask['task_template_id'] !== null ? (int) $offerTask['task_template_id'] : null,
                     (int) $offerTask['id'],

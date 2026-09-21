@@ -126,6 +126,15 @@ final class CartService
         return null;
     }
 
+    public function selectedOptionIds(int $sellerId,int $offerId): array
+    {
+        $q=$this->db->prepare('SELECT option_ids_json FROM cart_items WHERE seller_id=? AND offer_id=?');
+        $q->execute([$sellerId,$offerId]);
+        $raw=$q->fetchColumn();
+        if($raw===false)return [];
+        return array_values(array_unique(array_filter(array_map('intval',json_decode((string)$raw,true)?:[]))));
+    }
+
     public function contains(int $sellerId,int $offerId): bool
     {
         $q=$this->db->prepare('SELECT COUNT(*) FROM cart_items WHERE seller_id=? AND offer_id=?');

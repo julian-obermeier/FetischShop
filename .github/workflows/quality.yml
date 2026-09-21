@@ -94,6 +94,7 @@ jobs:
           <?php
           require __DIR__ . '/src/Services/SellerScheduleService.php';
           require __DIR__ . '/src/Services/SellerNavigationService.php';
+          require __DIR__ . '/src/Services/CartService.php';
           require __DIR__ . '/src/Services/CategoryFieldService.php';
           require __DIR__ . '/src/Services/Mailer.php';
           require __DIR__ . '/src/Services/SchedulerService.php';
@@ -113,6 +114,7 @@ jobs:
 
           (new App\Services\SellerScheduleService($pdo))->items(1, $from, $to);
           (new App\Services\SellerNavigationService($pdo))->counts(1);
+          (new App\Services\CartService($pdo))->items(1);
           (new App\Services\CategoryFieldService($pdo))->groupedForCategories([1,2,3]);
           $result = (new App\Services\SchedulerService($pdo))->run();
 
@@ -126,6 +128,11 @@ jobs:
               ['precheck_requirements','camera_required'],
               ['order_acceptance_consents','adult_confirmed'],
               ['digital_components','rights_status'],
+              ['cart_items','offer_version_id'],
+              ['order_offer_items','order_id'],
+              ['order_components','order_offer_item_id'],
+              ['order_options','order_offer_item_id'],
+              ['tasks','order_offer_item_id'],
           ];
           $columnQ = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?");
           foreach ($requiredColumns as [$table,$column]) {
